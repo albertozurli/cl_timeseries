@@ -100,6 +100,25 @@ def train_model(data,model,loss,optimizer,epochs):
     torch.save(model.state_dict(),'model.pt')
 
 
+def test_model(data,model,loss):
+    model.load_state_dict(torch.load('model.pt'))
+
+    model.eval()
+    predicted = []
+    test_loss = []
+    for seq, label in data:
+        with torch.no_grad():
+            pred = model(seq)
+            s_loss = loss(pred[0], label)
+            test_loss.append(s_loss.item())
+            predicted.append(pred[0].numpy())
+            # print(f"Predicted: {pred}, loss: {s_loss.item()}")
+
+    print(f"Test error: {statistics.mean(test_loss)}")
+
+    return predicted
+
+
 def main():
     raw_seq = read_csv()
     raw_seq = torch.Tensor(raw_seq).view(-1)
@@ -115,29 +134,20 @@ def main():
     optimizer = torch.optim.Adadelta(model.parameters(), lr=0.01)
     epochs = 200
     print(model)
-    # train_model(train_data,model=model,loss=loss,optimizer=optimizer,epochs=epochs)
+    #train_model(train_data,model=model,loss=loss,optimizer=optimizer,epochs=epochs)
 
-    model.load_state_dict(torch.load('model.pt'))
+
 
     # Test phase
-    fut_pred = 1
-    model.eval()
-    predicted = []
-    for i in range(fut_pred):
-        for seq,label in test_data:
-            with torch.no_grad():
-                pred =model(seq)
-                s_loss=loss(pred[0],label)
-                predicted.append(pred[0].numpy())
-                print(f"Predicted: {pred}, loss: {s_loss.item()}")
+    predicted = test_model(test_data,model=model,loss=loss)
 
-    plt.plot(raw_seq,label='Ground truth')
-    x = np.arange(1400,1734,1)
-    plt.plot(x,predicted,label='Predicted')
+    plt.plot(raw_seq, label='Ground truth')
+    x = np.arange(1400, 1734, 1)
+    plt.plot(x, predicted, label='Predicted')
     plt.autoscale(axis='x', tight=True)
     plt.show()
 
-    plt.plot(x,raw_seq[-334:], label='Ground truth')
+    plt.plot(x, raw_seq[-334:], label='Ground truth')
     plt.plot(x, predicted, label='Predicted')
     plt.autoscale(axis='x', tight=True)
     plt.show()
