@@ -3,72 +3,30 @@ import torch.nn as nn
 import matplotlib.pyplot as plt
 import statistics
 import numpy as np
-import os.path as osp
+import os
+import argparse
 
+from models import SimpleMLP
+from utils import split_seq,printProgressBar,read_csv
+from torch.utils.data import DataLoader
 
-class SimpleMLP(nn.Module):
-    def __init__(self,input_size,hid_size):
-        super(SimpleMLP,self).__init__()
-        self.input_size = input_size
-        self.hid_size = hid_size
-        self.net = nn.Sequential(
-            nn.Linear(input_size, hid_size),
-            nn.ReLU(),
-            nn.Dropout(0.1),
-            nn.Linear(hid_size, hid_size),
-            nn.ReLU(),
-            nn.Dropout(0.1),
-            nn.Linear(hid_size, hid_size),
-            nn.ReLU(),
-            nn.Dropout(0.1),
-            nn.Linear(hid_size, 1),
-        )
+os.environ["KMP_DUPLICATE_LIB_OK"]='True'
+parser = argparse.ArgumentParser(description='Thesis')
 
-    def forward(self,x):
-        x = self.net(x)
-        return x
-
-
-def split_seq(sequence,n_steps):
-
-    inout_seq = []
-    for i in range(len(sequence)):
-        end = i+n_steps
-        if end> (len(sequence)-1):
-            break
-        seq_x,seq_y= sequence[i:end],sequence[end]
-        inout_seq.append((seq_x,seq_y))
-    return inout_seq
-
-
-# Print iterations progress
-def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█', printEnd = "\r"):
-    """
-    Call in a loop to create terminal progress bar
-    @params:
-        iteration   - Required  : current iteration (Int)
-        total       - Required  : total iterations (Int)
-        prefix      - Optional  : prefix string (Str)
-        suffix      - Optional  : suffix string (Str)
-        decimals    - Optional  : positive number of decimals in percent complete (Int)
-        length      - Optional  : character length of bar (Int)
-        fill        - Optional  : bar fill character (Str)
-        printEnd    - Optional  : end character (e.g. "\r", "\r\n") (Str)
-    """
-    percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
-    filledLength = int(length * iteration // total)
-    bar = fill * filledLength + '-' * (length - filledLength)
-    print(f'\r{prefix} |{bar}| {percent}% {suffix}', end = printEnd)
-
-
-def read_csv():
-    ROOT_PATH = ""
-    csv_path = osp.join(ROOT_PATH, 'test-brent.csv')
-    lines = [x.strip() for x in open(csv_path, 'r').readlines()][1:]
-    value_list = lines[0].split(',')
-    value_list.pop(0)
-    value_list = [float(i) for i in value_list]
-    return value_list
+parser.add_argument('--hidden_size', type=int, default=200, metavar='HIDDENSIZE',
+                    help="Number of neurons in hidden layer (default: 200)")
+parser.add_argument('--batch_size',type=int, default=128, metavar='BATCHSIZE',
+                    help="Batch size dimension (default: 128)")
+parser.add_argument('--epochs',type=int, default=500, metavar='EPOCHS',
+                    help="Number of train epochs (default: 500)")
+parser.add_argument('--lr',type=float, default=0.01, metavar='LR',
+                    help="Learning rate (default: 0.01)")
+parser.add_argument('--filename',type=str, default="test-brent.csv", metavar='FILENAME',
+                    help="CSV file(default: test-brent.csv)")
+parser.add_argument('--train',type=int, default=0, metavar='TRAIN',
+                    help="if 1 train the model, 0 otherwise (default: 0)")
+parser.add_argument('--test',type=int, default=0, metavar='TEST',
+                    help="if 1 train the model, 0 otherwise (default: 0)")
 
 
 def train_model(data,model,loss,optimizer,epochs):
@@ -77,24 +35,28 @@ def train_model(data,model,loss,optimizer,epochs):
     model.train()
     for i in range(epochs+1):
         loss_list = []
-        printProgressBar(i + 1,epochs, prefix='Progress:', suffix='Complete', length=50)
-        for seq, label in data:
+        # printProgressBar(i + 1,epochs, prefix='Progress:', suffix='Complete', length=50)
+        for j,(seq, label) in enumerate(data):
             optimizer.zero_grad()
 
+            seq = seq.cuda()
             y_pred = model(seq)
 
-            s_loss = loss(y_pred[0], label)
+            label = label.cuda()
+            s_loss = loss(y_pred.squeeze(), label)
             loss_list.append(s_loss.item())
             s_loss.backward()
 
             optimizer.step()
 
         if i % 50 == 0:
-            print(f'epoch: {i:3} loss: {statistics.mean(loss_list)}')
+            print(f'epoch: {i:3}/{epochs} loss: {statistics.mean(loss_list)}')
 
         mse.append(statistics.mean(loss_list))
 
-    plt.plot(mse)
+    plt.plot(mse,label='MSE')
+    plt.autoscale(axis='x', tight=True)
+    plt.legend(loc='best')
     plt.show()
 
     torch.save(model.state_dict(),'model.pt')
@@ -106,12 +68,14 @@ def test_model(data,model,loss):
     model.eval()
     predicted = []
     test_loss = []
-    for seq, label in data:
+    for j,(seq, label) in enumerate(data):
         with torch.no_grad():
+            seq = seq.cuda()
+            label = label.cuda()
             pred = model(seq)
             s_loss = loss(pred[0], label)
             test_loss.append(s_loss.item())
-            predicted.append(pred[0].numpy())
+            predicted.append(pred[0].cpu().numpy())
             # print(f"Predicted: {pred}, loss: {s_loss.item()}")
 
     print(f"Test error: {statistics.mean(test_loss)}")
@@ -119,39 +83,54 @@ def test_model(data,model,loss):
     return predicted
 
 
-def main():
-    raw_seq = read_csv()
-    raw_seq = torch.Tensor(raw_seq).view(-1)
-    data =split_seq(raw_seq,4)
+def main(config):
+    raw_data = read_csv(config["filename"])
+    raw_seq = torch.Tensor(raw_data).view(-1)
+    data = split_seq(raw_seq,4)
     train_data = data[:1400]
     test_data = data[1400:]
     # for seq,label in data:
     #     print(seq,label)
 
-    # Setup asnd train the model
-    model = SimpleMLP(input_size=4,hid_size=100)
+    # Cuda
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print (f"Device: {device}")
+    print(torch.cuda.get_device_name(0))
+
+    # Setup and train the model
+    model = SimpleMLP(input_size=4,hid_size=config["hidden_size"])
+    model = model.cuda()
     loss = nn.MSELoss()
-    optimizer = torch.optim.Adadelta(model.parameters(), lr=0.01)
-    epochs = 200
+    optimizer = torch.optim.Adadelta(model.parameters(), lr=config["lr"])
+    epochs = config["epochs"]
     print(model)
-    #train_model(train_data,model=model,loss=loss,optimizer=optimizer,epochs=epochs)
 
-
+    if config["train"]:
+        train_loader = DataLoader(train_data,batch_size=config["batch_size"],shuffle=True)
+        train_model(train_loader,model=model,loss=loss,optimizer=optimizer,epochs=epochs)
 
     # Test phase
-    predicted = test_model(test_data,model=model,loss=loss)
+    if config["test"]:
+        test_loader = DataLoader(test_data, batch_size=config["batch_size"], shuffle=True)
+        predicted = test_model(test_data,model=model,loss=loss)
 
-    plt.plot(raw_seq, label='Ground truth')
-    x = np.arange(1400, 1734, 1)
-    plt.plot(x, predicted, label='Predicted')
-    plt.autoscale(axis='x', tight=True)
-    plt.show()
+        plt.plot(raw_seq, label='Ground truth')
+        x = np.arange(1400, 1734, 1)
+        plt.plot(x, predicted, label='Predicted')
+        plt.autoscale(axis='x', tight=True)
+        plt.legend(loc='best')
+        plt.show()
 
-    plt.plot(x, raw_seq[-334:], label='Ground truth')
-    plt.plot(x, predicted, label='Predicted')
-    plt.autoscale(axis='x', tight=True)
-    plt.show()
+        plt.plot(x, raw_seq[-334:], label='Ground truth')
+        plt.plot(x, predicted, label='Predicted')
+        plt.autoscale(axis='x', tight=True)
+        plt.legend(loc='best')
+        plt.show()
+
+
+
 
 
 if __name__=="__main__":
-    main()
+    args = vars(parser.parse_args())
+    main(args)
