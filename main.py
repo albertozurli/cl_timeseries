@@ -148,8 +148,7 @@ def main(config):
 
     # Split in N train/test set (data + domain feature)
     train_data,test_data = split_train_test(raw_data,chps,4)
-    train_data = [item for sublist in train_data for item in sublist]
-    test_data = [item for sublist in test_data for item in sublist]
+
 
     # Cuda
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -173,8 +172,10 @@ def main(config):
 
     # Joint training
     if config["joint"]:
+        train_data = [item for sublist in train_data for item in sublist]
+        test_data = [item for sublist in test_data for item in sublist]
         if config["train"]:
-            train_loader = DataLoader(train_data,batch_size=config["batch_size"],shuffle=True)
+            train_loader = DataLoader(train_data,batch_size=config["batch_size"],shuffle=False)
             train_model(train_loader,model=model,loss=loss,optimizer=optimizer,epochs=epochs)
         # Test phase
         if config["test"]:
@@ -191,7 +192,7 @@ def main(config):
             for index,train_set in enumerate(train_data):
                 print(f"---------- DOMAIN {index} ----------")
                 print("Training\n")
-                train_loader = DataLoader(train_set, batch_size=config["batch_size"], shuffle=True)
+                train_loader = DataLoader(train_set, batch_size=config["batch_size"], shuffle=False)
                 if index !=0:
                     model.load_state_dict(torch.load('model.pt'))
                 train_model(train_loader, model=model, loss=loss, optimizer=optimizer, epochs=epochs)
