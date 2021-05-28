@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: 2020 Lukas Schrangl <lukas.schrangl@tuwien.ac.at>
+#
+# SPDX-License-Identifier: CC0-1.0
+
+# z fit parameters
+x:
+  d: 0.4
+  c: 0.15
+  w0: 2.0
+  a: [0.5, 0.]
+y:
+  d: 0.4
+  c: -0.15
+  w0: 2.0
+  a: [0.5, 0.]
+z range: [-0.5, 0.5]
