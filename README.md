@@ -7,13 +7,14 @@ Model can be customized, for further information refer to
 ```
 python ./main.py -h
 ```
-Input data can also be pre-processed with different transformations:
-* `--normalize` 
-* `--standardize`
+Input data can also be pre-processed with `--processing`:
 * `--difference`
+* To update
+
+An example of BOCD heatmap is available at `notebook/chp_analysis.ipynb`
 ##Package and dependencies:
 
-First, install the BOCP package via
+First, install the BOCD package via
 
 ```
 pip install -e .
@@ -31,10 +32,6 @@ pip install -r requirements.txt
 
 Model can be executed for both regression and classification (regression not working at this moment)
 
-Joint training:
-```
-python ./main.py --joint --train
-```
 Online training:
 ```
 python ./main.py --online --train
@@ -42,17 +39,14 @@ python ./main.py --online --train
 
 
 ##Testing:
-Joint testing:
-```
-python ./main.py --joint --test
-```
+
 Online testing:
 ```
 python ./main.py --online --test
 ```
 
 ###TO DO:
-* Try different changepoint algorithm params
-* Find best pre-processing technique (Discuss with J)
+* Add indicators( from TA-LIB) as a feature
 * Implement buffer for ER
+* Fix Tensorboard
 

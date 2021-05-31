@@ -25,4 +25,5 @@ tifffile
 torch
 torchaudio
 torchvision
+tqdm
 typing-extensions
