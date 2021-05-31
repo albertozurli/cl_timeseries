@@ -13,7 +13,7 @@ Input data can also be pre-processed with `--processing`:
 
 An example of BOCD heatmap is available at `notebook/chp_analysis.ipynb`
 
-##Package and dependencies:
+## Package and dependencies:
 
 First, install the BOCD package via
 
@@ -29,7 +29,7 @@ pip install -r requirements.txt
 ```
  in main project repo
 
-##Training:
+## Training:
 
 Model can be executed for both regression and classification (regression not working at this moment)
 
@@ -39,14 +39,14 @@ python ./main.py --online --train
 ```
 
 
-##Testing:
+## Testing:
 
 Online testing:
 ```
 python ./main.py --online --test
 ```
 
-###TO DO:
+### TO DO:
 * Add indicators( from TA-LIB) as a feature
 * Implement buffer for ER
 * Fix Tensorboard
