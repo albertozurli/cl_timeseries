@@ -12,6 +12,7 @@ Input data can also be pre-processed with `--processing`:
 * To update
 
 An example of BOCD heatmap is available at `notebook/chp_analysis.ipynb`
+(As discussed with J)
 
 ## Package and dependencies:
 
