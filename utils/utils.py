@@ -62,7 +62,7 @@ def split_train_test(data, chps, n_step):
 
 
 def read_csv(filename):
-    path = Path("dataset/")
+    path = Path("../dataset/")
     csv_path = path.joinpath(filename)
     lines = [x.strip() for x in open(csv_path, 'r').readlines()][1:]
     value_list = lines[0].split(',')

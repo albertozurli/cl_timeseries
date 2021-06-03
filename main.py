@@ -8,15 +8,14 @@ import numpy
 import torch
 import torch.nn as nn
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 import datetime
 from tqdm import tqdm
 
 import detection.sdt.changepoint as detection
-from models import RegressionMLP, ClassficationMLP
-from utils import read_csv, binary_accuracy, split_train_test, compute_diff
+from utils.models import RegressionMLP, ClassficationMLP
+from utils.utils import read_csv, binary_accuracy, split_train_test, compute_diff
 
 warnings.simplefilter('ignore', category=NumbaDeprecationWarning)
 warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
