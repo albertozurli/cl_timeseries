@@ -1,21 +1,17 @@
 import argparse
 import os
-import statistics
 import warnings
-
-import matplotlib.pyplot as plt
 import numpy
 import torch
+
 import torch.nn as nn
+import detection.sdt.changepoint as detection
+
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
-import datetime
-from tqdm import tqdm
-
-import detection.sdt.changepoint as detection
+from utils.training import test, train_online
 from utils.models import RegressionMLP, ClassficationMLP
-from utils.utils import read_csv, binary_accuracy, split_train_test, compute_diff
+from utils.utils import read_csv, split_train_test, compute_diff
 
 warnings.simplefilter('ignore', category=NumbaDeprecationWarning)
 warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
@@ -42,92 +38,7 @@ parser.add_argument('--processing', default='none', choices=['none', 'difference
                     help="Type of pre-processing")
 
 
-def train_model(data, model, loss, optimizer, epochs, index):
-    bce = []
-    accuracy = []
-    model.train()
-
-    train_writer = SummaryWriter('./runs/' + 'train/' + datetime.datetime.now().strftime('%d_%m_%Y_%H_%M'))
-
-    for i in tqdm(range(epochs)):
-        loss_list = []
-        acc_list = []
-        for j, (x, y) in enumerate(data):
-            optimizer.zero_grad()
-
-            x = x.cuda()
-            y_pred = model(x)
-
-            y = y.cuda()
-            s_loss = loss(y_pred.squeeze(1), y)
-            acc = binary_accuracy(y_pred.squeeze(1), y)
-            loss_list.append(s_loss.item())
-            acc_list.append(acc.item())
-
-            s_loss.backward()
-            optimizer.step()
-
-            train_writer.add_scalar('BCE/Train', s_loss, i)
-            train_writer.add_scalar('Accuracy/Train', acc, i)
-
-        if i % 50 == 0:
-            print(f'\nEpoch {i:03}/{epochs} | Loss: {statistics.mean(loss_list):.5f} '
-                  f'| Acc: {statistics.mean(acc_list):.5f}')
-
-        bce.append(statistics.mean(loss_list))
-        accuracy.append(statistics.mean(acc_list))
-
-    plt.plot(bce, label='BCE')
-    plt.autoscale(axis='x', tight=True)
-    title = " Train BCE domain " + str(index)
-    plt.title(title)
-    plt.legend(loc='best')
-    plt.show()
-
-    plt.plot(accuracy, label='accuracy')
-    plt.autoscale(axis='x', tight=True)
-    title = "Train Accuracy domain " + str(index)
-    plt.title(title)
-    plt.legend(loc='best')
-    plt.show()
-
-    torch.save(model.state_dict(), 'model.pt')
-
-
-def test_model(data, model, loss, index):
-    model.load_state_dict(torch.load('model.pt'))
-
-    model.eval()
-    test_loss = []
-    accuracy = []
-    predicted = []
-
-    writer = SummaryWriter('./runs/' + 'test/' + datetime.datetime.now().strftime('%d_%m_%Y_%H_%M'))
-
-    for j, (x, y) in enumerate(data):
-        with torch.no_grad():
-            x = x.cuda()
-            y = y.cuda()
-            pred = model(x)
-            s_loss = loss(pred.squeeze(1), y)
-            acc = binary_accuracy(pred.squeeze(1), y)
-            predicted.append(pred.cpu().numpy().item())
-            accuracy.append(acc.item())
-            test_loss.append(s_loss.item())
-
-            writer.add_scalar('BCE/Test', s_loss.item(), j)
-            writer.add_scalar('Accuracy/Test', acc.item(), j)
-
-    print(f"Test error: {statistics.mean(test_loss)} | Test accuracy: {statistics.mean(accuracy):.5f}")
-
-    # Scatter plot
-    tmp = predicted[1:]
-    tmp.append(0)
-    plt.scatter(predicted, tmp)
-    title = "Scatter plot domain " + str(index)
-    plt.title(title)
-    plt.show()
-
+#TODO AGGIUNGERE AL MAIN IL CL E TESTARE + PICCOLO REFACTOR
 
 def main(config):
     raw_data = read_csv(config["filename"])
@@ -180,23 +91,21 @@ def main(config):
     if config["online"]:
         if config["train"]:
             for index, train_set in enumerate(train_data):
-                print(f"---------- DOMAIN {index} ----------")
-                print("Training")
+                print(f"----- DOMAIN {index} -----")
                 train_loader = DataLoader(train_set, batch_size=config["batch_size"], shuffle=False)
                 if index != 0:
                     model.load_state_dict(torch.load('model.pt'))
-                train_model(train_loader, model=model, loss=loss, optimizer=optimizer, epochs=epochs, index=index)
-                print("\nTesting")
+                train_online(train_loader, model=model, loss=loss, optimizer=optimizer, epochs=epochs, index=index)
+                # test domain just trained
                 test_loader = DataLoader(test_data[index], batch_size=1, shuffle=False)
-                test_model(test_loader, model=model, loss=loss, index=index)
+                test(model=model, loss=loss, test_loader=test_loader)
 
         if config["test"]:
             print("-------------------")
-            print("FINAL TEST EVAL")
             for idx, test_set in enumerate(test_data):
                 print(f"\n DOMAIN {idx}")
                 test_loader = DataLoader(test_set, batch_size=1, shuffle=False)
-                test_model(test_loader, model=model, loss=loss, index=idx)
+                test(model=model, loss=loss, test_loader=test_loader)
 
 
 if __name__ == "__main__":
