@@ -54,20 +54,17 @@ class Buffer:
         :param size: the number of requested items
         :return:
         """
-        if size > min(self.seen_examples, self.examples.shape[0]):
-            size = min(self.seen_examples, self.examples.shape[0])
+        if size > min(self.seen_examples, len([x for x in self.examples if x is not None])):
+            size = min(self.seen_examples,  len([x for x in self.examples if x is not None]))
+            # size = min(self.seen_examples, self.examples.shape[0])
 
-        choice = np.random.choice(min(self.seen_examples, self.examples.shape[0]),
+        choice = np.random.choice(min(self.seen_examples,  len([x for x in self.examples if x is not None])),
                                   size=size, replace=False)
 
-        ret_tuple = (torch.stack([ee.cpu()
-                                  for ee in self.examples[choice]]).to(self.device),)
-        for attr_str in self.attributes[1:]:
-            if hasattr(self, attr_str):
-                attr = getattr(self, attr_str)
-                ret_tuple += (attr[choice],)
+        ret_examples = [self.examples[idx] for idx in choice]
+        ret_labels = [self.labels[idx] for idx in choice]
 
-        return ret_tuple
+        return ret_examples,ret_labels
 
     def is_empty(self):
         """"

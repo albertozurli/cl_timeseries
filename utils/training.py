@@ -24,6 +24,7 @@ def train(model, loss, batch_size, data_set, epochs, optimizer, index, buffer):
             labels = y.cuda()
             if index > 0:
                 buf_input, buf_label = buffer.get_data(batch_size)  # Strategy 50/50
+                # CONVERTIREV LIST IN TENSOR FLOAT
                 inputs = torch.cat((inputs, buf_input))
                 labels = torch.cat((labels, buf_label))
 
