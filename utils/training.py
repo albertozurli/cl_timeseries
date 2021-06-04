@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from buffer import Buffer
-from utils import binary_accuracy
+from utils.buffer import Buffer
+from utils.utils import binary_accuracy
 
 
 
