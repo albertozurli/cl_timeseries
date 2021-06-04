@@ -9,7 +9,7 @@ import detection.sdt.changepoint as detection
 
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 from torch.utils.data import DataLoader
-from utils.training import test, train_online
+from utils.training import test, train_online, train_cl
 from utils.models import RegressionMLP, ClassficationMLP
 from utils.utils import read_csv, split_train_test, compute_diff
 
@@ -26,6 +26,8 @@ parser.add_argument('--lr', type=float, default=0.0001,
                     help="Learning rate (default: 0.0001)")
 parser.add_argument('--filename', type=str, default="brent-monthly.csv",
                     help="CSV file(default: brent-monthly.csv)")
+parser.add_argument('--buffer_size',type=int,default=500,
+                    help="Size of the buffer for ER (default: 500")
 parser.add_argument('--train', action='store_true',
                     help="Train the model")
 parser.add_argument('--test', action='store_true',
@@ -34,11 +36,13 @@ parser.add_argument('--regression', action='store_true',
                     help="Regression task")
 parser.add_argument('--online', action='store_true',
                     help="Online Learning")
+parser.add_argument('--continual', action='store_true',
+                    help="Continual Learning with ER")
 parser.add_argument('--processing', default='none', choices=['none', 'difference'],
                     help="Type of pre-processing")
 
 
-#TODO AGGIUNGERE AL MAIN IL CL E TESTARE + PICCOLO REFACTOR
+# TODO AGGIUNGERE AL MAIN IL CL E TESTARE + PICCOLO REFACTOR
 
 def main(config):
     raw_data = read_csv(config["filename"])
@@ -106,6 +110,10 @@ def main(config):
                 print(f"\n DOMAIN {idx}")
                 test_loader = DataLoader(test_set, batch_size=1, shuffle=False)
                 test(model=model, loss=loss, test_loader=test_loader)
+
+    if config['continual']:
+        train_cl(train_set=train_data, test_set=test_data, model=model, loss=loss,
+                 optimizer=optimizer, config=config, device=device)
 
 
 if __name__ == "__main__":

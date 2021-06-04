@@ -8,8 +8,6 @@ from utils.buffer import Buffer
 from utils.utils import binary_accuracy
 
 
-
-
 def train(model, loss, batch_size, data_set, epochs, optimizer, index, buffer):
     print("Training model...")
     train_loader = DataLoader(data_set, batch_size=batch_size,
@@ -76,7 +74,7 @@ def test(model, loss, test_loader):
     print(f"Test error: {statistics.mean(test_loss)} | Test accuracy: {statistics.mean(test_acc):.5f}")
 
 
-def train_cl(train_set, test_set, model, loss, optimizer, epochs, config, device):
+def train_cl(train_set, test_set, model, loss, optimizer,device,config):
     buffer = Buffer(config['buffer_size'], device)
     # train_loss = []
     # train_acc = []
@@ -84,9 +82,9 @@ def train_cl(train_set, test_set, model, loss, optimizer, epochs, config, device
         model.train()
         print(f"----- DOMAIN {index} -----")
         if index == 0:
-            train(model, loss, config['batch_size'], data_set, epochs, optimizer, index, buffer)
+            train(model, loss, config['batch_size'], data_set, config['epochs'], optimizer, index, buffer)
         else:
-            train(model, loss, config['batch_size'] / 2, data_set, epochs, optimizer, index, buffer)
+            train(model, loss, config['batch_size'] // 2, data_set, config['epochs'], optimizer, index, buffer)
 
         test_loader = DataLoader(test_set[index], batch_size=1, shuffle=False)  # DIM ORIGINALE SENZA REPLAY
         test(model, loss, test_loader)

@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 def compute_diff(data):
-    diff = np.diff(data,axis=0)
+    diff = np.diff(data, axis=0)
     return diff.tolist()
 
 
@@ -63,7 +63,7 @@ def split_train_test(data, chps, n_step):
 
 def read_csv(filename):
     path = Path.cwd()
-    csv_path = path.joinpath('dataset',filename)
+    csv_path = path.joinpath('dataset', filename)
     lines = [x.strip() for x in open(csv_path, 'r').readlines()][1:]
     value_list = lines[0].split(',')
     value_list.pop(0)

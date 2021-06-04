@@ -30,6 +30,8 @@ class Buffer:
         self.device = device
         self.seen_examples = 0
         self.attributes = ['examples', 'labels']
+        self.examples = [None] * self.buffer_size
+        self.labels = [None] * self.buffer_size
 
     def add_data(self, examples, labels=None):
         """
