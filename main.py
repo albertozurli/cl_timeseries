@@ -26,7 +26,7 @@ parser.add_argument('--lr', type=float, default=0.0001,
                     help="Learning rate (default: 0.0001)")
 parser.add_argument('--filename', type=str, default="brent-monthly.csv",
                     help="CSV file(default: brent-monthly.csv)")
-parser.add_argument('--buffer_size',type=int,default=500,
+parser.add_argument('--buffer_size', type=int, default=500,
                     help="Size of the buffer for ER (default: 500")
 parser.add_argument('--train', action='store_true',
                     help="Train the model")
@@ -42,7 +42,7 @@ parser.add_argument('--processing', default='none', choices=['none', 'difference
                     help="Type of pre-processing")
 
 
-# TODO AGGIUNGERE AL MAIN IL CL E TESTARE + PICCOLO REFACTOR
+# TODO SISTEMARE IL FORMATO NP.ARRAY/LIST/TENSOR PER IL BUFFER
 
 def main(config):
     raw_data = read_csv(config["filename"])
@@ -80,12 +80,14 @@ def main(config):
     # Setup and train the model
     if config["regression"]:
         model = RegressionMLP(input_size=5)
-        model = model.cuda()
+        model = model.to(device)
+        # model = model.cuda()
         loss = nn.MSELoss()
         optimizer = torch.optim.Adadelta(model.parameters(), lr=config["lr"])
     else:
         model = ClassficationMLP(input_size=5)
-        model = model.cuda()
+        model = model.to(device)
+        # model = model.cuda()
         loss = nn.BCELoss()
         optimizer = torch.optim.Adam(model.parameters(), lr=config["lr"])
 
@@ -99,17 +101,18 @@ def main(config):
                 train_loader = DataLoader(train_set, batch_size=config["batch_size"], shuffle=False)
                 if index != 0:
                     model.load_state_dict(torch.load('model.pt'))
-                train_online(train_loader, model=model, loss=loss, optimizer=optimizer, epochs=epochs, index=index)
+                train_online(train_loader, model=model, loss=loss, optimizer=optimizer, epochs=epochs, index=index,
+                             device=device)
                 # test domain just trained
                 test_loader = DataLoader(test_data[index], batch_size=1, shuffle=False)
-                test(model=model, loss=loss, test_loader=test_loader)
+                test(model=model, loss=loss, test_loader=test_loader, device=device)
 
         if config["test"]:
             print("-------------------")
             for idx, test_set in enumerate(test_data):
                 print(f"\n DOMAIN {idx}")
                 test_loader = DataLoader(test_set, batch_size=1, shuffle=False)
-                test(model=model, loss=loss, test_loader=test_loader)
+                test(model=model, loss=loss, test_loader=test_loader, device=device)
 
     if config['continual']:
         train_cl(train_set=train_data, test_set=test_data, model=model, loss=loss,

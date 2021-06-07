@@ -8,7 +8,7 @@ from utils.buffer import Buffer
 from utils.utils import binary_accuracy
 
 
-def train(model, loss, batch_size, data_set, epochs, optimizer, index, buffer):
+def train(model, loss, batch_size, data_set, epochs, optimizer, index, buffer, device):
     print("Training model...")
     train_loader = DataLoader(data_set, batch_size=batch_size,
                               shuffle=False)  # DIM ORIGINALE SENZA REPLAY
@@ -20,8 +20,10 @@ def train(model, loss, batch_size, data_set, epochs, optimizer, index, buffer):
         for i, (x, y) in enumerate(train_loader):
             optimizer.zero_grad()
 
-            inputs = x.cuda()
-            labels = y.cuda()
+            inputs = x.to(device)
+            labels = y.to(device)
+            # inputs = x.cuda()
+            # labels = y.cuda()
             if index > 0:
                 buf_input, buf_label = buffer.get_data(batch_size)  # Strategy 50/50
                 # CONVERTIREV LIST IN TENSOR FLOAT
@@ -37,7 +39,8 @@ def train(model, loss, batch_size, data_set, epochs, optimizer, index, buffer):
 
             s_loss.backward()
             optimizer.step()
-            buffer.add_data(examples=x.cuda(), labels=y.cuda())
+            buffer.add_data(examples=x.to(device), labels=y.to(device))
+            # buffer.add_data(examples=x.cuda(), labels=y.cuda())
 
         if epoch % 100 == 0:
             print(f'\nEpoch {epoch:03}/{epochs} | Loss: {statistics.mean(epoch_loss):.5f} '
@@ -52,7 +55,7 @@ def train(model, loss, batch_size, data_set, epochs, optimizer, index, buffer):
           f" Training acc: {statistics.mean(domain_acc):.5f}")
 
 
-def test(model, loss, test_loader):
+def test(model, loss, test_loader, device):
     print("Testing model...")
     model.load_state_dict(torch.load('model.pt'))
 
@@ -63,8 +66,10 @@ def test(model, loss, test_loader):
 
     for j, (x, y) in enumerate(test_loader):
         with torch.no_grad():
-            x = x.cuda()
-            y = y.cuda()
+            x = x.to(device)
+            y = y.to(device)
+            # x = x.cuda()
+            # y = y.cuda()
             pred = model(x)
             s_loss = loss(pred.squeeze(1), y)
             acc = binary_accuracy(pred.squeeze(1), y)
@@ -75,7 +80,7 @@ def test(model, loss, test_loader):
     print(f"Test error: {statistics.mean(test_loss)} | Test accuracy: {statistics.mean(test_acc):.5f}")
 
 
-def train_cl(train_set, test_set, model, loss, optimizer,device,config):
+def train_cl(train_set, test_set, model, loss, optimizer, device, config):
     buffer = Buffer(config['buffer_size'], device)
     # train_loss = []
     # train_acc = []
@@ -83,15 +88,15 @@ def train_cl(train_set, test_set, model, loss, optimizer,device,config):
         model.train()
         print(f"----- DOMAIN {index} -----")
         if index == 0:
-            train(model, loss, config['batch_size'], data_set, config['epochs'], optimizer, index, buffer)
+            train(model, loss, config['batch_size'], data_set, config['epochs'], optimizer, index, buffer, device)
         else:
-            train(model, loss, config['batch_size'] // 2, data_set, config['epochs'], optimizer, index, buffer)
+            train(model, loss, config['batch_size'] // 2, data_set, config['epochs'], optimizer, index, buffer, device)
 
         test_loader = DataLoader(test_set[index], batch_size=1, shuffle=False)  # DIM ORIGINALE SENZA REPLAY
-        test(model, loss, test_loader)
+        test(model, loss, test_loader, device)
 
 
-def train_online(data, model, loss, optimizer, epochs, index):
+def train_online(data, model, loss, optimizer, epochs, index, device):
     bce = []
     accuracy = []
     model.train()
@@ -102,10 +107,12 @@ def train_online(data, model, loss, optimizer, epochs, index):
         for j, (x, y) in enumerate(data):
             optimizer.zero_grad()
 
-            x = x.cuda()
+            x = x.to(device)
+            # x = x.cuda()
             y_pred = model(x)
 
-            y = y.cuda()
+            y = y.to(device)
+            # y = y.cuda()
             s_loss = loss(y_pred.squeeze(1), y)
             acc = binary_accuracy(y_pred.squeeze(1), y)
             epoch_loss.append(s_loss.item())
