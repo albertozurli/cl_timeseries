@@ -44,8 +44,10 @@ def split_train_test(data, chps, n_step):
             if end_seq > (len(subdata) - 4):
                 break
             seq_x, y = subdata[i:end_seq], subdata[end_seq + 3]
-            domain = np.array(np.digitize(index, chps))
-            input = np.concatenate((seq_x, domain.reshape(1, -1))).squeeze()
+            domain = index
+            input = np.append(seq_x,domain)
+            # domain = np.array(np.digitize(index, chps))
+            # input = np.concatenate((seq_x, domain.reshape(1, -1))).squeeze()
 
             label = 0.  # Target value lower or equal than input sequence
             if y > statistics.mean(seq_x.flatten()):

@@ -27,8 +27,8 @@ def train(model, loss, batch_size, data_set, epochs, optimizer, index, buffer, d
             if index > 0:
                 buf_input, buf_label = buffer.get_data(batch_size)  # Strategy 50/50
                 # CONVERTIREV LIST IN TENSOR FLOAT
-                inputs = torch.cat((inputs, buf_input))
-                labels = torch.cat((labels, buf_label))
+                inputs = torch.cat((inputs, torch.stack(buf_input)))
+                labels = torch.cat((labels, torch.stack(buf_label)))
 
             y_pred = model(inputs)
             s_loss = loss(y_pred.squeeze(1), labels)
@@ -39,7 +39,8 @@ def train(model, loss, batch_size, data_set, epochs, optimizer, index, buffer, d
 
             s_loss.backward()
             optimizer.step()
-            buffer.add_data(examples=x.to(device), labels=y.to(device))
+            if epoch == 0:
+                buffer.add_data(examples=x.to(device), labels=y.to(device))
             # buffer.add_data(examples=x.cuda(), labels=y.cuda())
 
         if epoch % 100 == 0:
@@ -94,6 +95,19 @@ def train_cl(train_set, test_set, model, loss, optimizer, device, config):
 
         test_loader = DataLoader(test_set[index], batch_size=1, shuffle=False)  # DIM ORIGINALE SENZA REPLAY
         test(model, loss, test_loader, device)
+
+    d0 = 0
+    d1 = 0
+    d2 = 0
+    for data in buffer.examples:
+        if data[4] == 0:
+            d0 += 1
+        if data[4] == 1:
+            d1 += 1
+        if data[4] == 2:
+            d2 += 1
+
+    print(f"Buffer: d0 {d0}, d1 {d1},d2 {d2}")
 
 
 def train_online(data, model, loss, optimizer, epochs, index, device):

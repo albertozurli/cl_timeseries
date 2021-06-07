@@ -117,6 +117,11 @@ def main(config):
     if config['continual']:
         train_cl(train_set=train_data, test_set=test_data, model=model, loss=loss,
                  optimizer=optimizer, config=config, device=device)
+        print("-------------------")
+        for idx, test_set in enumerate(test_data):
+            print(f"\n DOMAIN {idx}")
+            test_loader = DataLoader(test_set, batch_size=1, shuffle=False)
+            test(model=model, loss=loss, test_loader=test_loader, device=device)
 
 
 if __name__ == "__main__":
