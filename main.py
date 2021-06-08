@@ -42,8 +42,6 @@ parser.add_argument('--processing', default='none', choices=['none', 'difference
                     help="Type of pre-processing")
 
 
-# TODO SISTEMARE IL FORMATO NP.ARRAY/LIST/TENSOR PER IL BUFFER
-
 def main(config):
     raw_data = read_csv(config["filename"])
 
