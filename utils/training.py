@@ -54,8 +54,6 @@ def train_cl(train_set, test_set, model, loss, optimizer, device, config):
         # train(model, loss, config['batch_size'], data_set, config['epochs'], optimizer, buffer, device)
         print("Training model...")
         train_loader = DataLoader(data_set, batch_size=config['batch_size'], shuffle=False)
-        domain_acc = []
-        domain_loss = []
 
         for epoch in tqdm(range(config['epochs'])):
             epoch_loss = []
@@ -89,16 +87,15 @@ def train_cl(train_set, test_set, model, loss, optimizer, device, config):
                 print(f'\nEpoch {epoch:03}/{config["epochs"]} | Loss: {statistics.mean(epoch_loss):.5f} '
                       f'| Acc: {statistics.mean(epoch_acc):.5f}')
 
-            # METRICHE DEL DOMINIO
-            domain_acc.append(statistics.mean(epoch_acc))
-            domain_loss.append(statistics.mean(epoch_loss))
+            # Last epoch (only for stats)
+            if epoch == 499:
+                print(f'\nEpoch {epoch:03}/{config["epochs"]} | Loss: {statistics.mean(epoch_loss):.5f} '
+                      f'| Acc: {statistics.mean(epoch_acc):.5f}')
 
-        print(f"Training loss: {statistics.mean(domain_loss):.5f} |"
-              f" Training acc: {statistics.mean(domain_acc):.5f}")
         # Test on domain just trained + old domains
         for past in range(index + 1):
             print(f"Testing model on domain {past}")
-            test_loader = DataLoader(test_set[past], batch_size=1, shuffle=False)  # DIM ORIGINALE SENZA REPLAY
+            test_loader = DataLoader(test_set[past], batch_size=1, shuffle=False)
             test(model, loss, test_loader, device)
 
     # Test to check buffer distribution
@@ -143,6 +140,10 @@ def train_online(data, model, loss, optimizer, epochs, device, domain):
         writer.add_scalar('Train/Accuracy', statistics.mean(epoch_acc), i)
         if i % 100 == 0:
             print(f'\nEpoch {i:03}/{epochs} | Loss: {statistics.mean(epoch_loss):.5f} '
+                  f'| Acc: {statistics.mean(epoch_acc):.5f}')
+        # Last epoch (only for stats)
+        if i == 499:
+            print(f'\nEpoch {i:03}/{epochs} | Loss: {statistics.mean(epoch_loss):.5f}'
                   f'| Acc: {statistics.mean(epoch_acc):.5f}')
 
     torch.save(model.state_dict(), f'checkpoints/online/model_d{domain}.pt')

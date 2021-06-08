@@ -104,5 +104,5 @@ class Buffer:
             if data[4] == 2:
                 d2 += 1
 
-        print(f"Buffer: d0 {d0}({d0 / self.buffer_size * 100}%), d1 {d1}({d1 / self.buffer_size * 100}%),"
-              f"d2 {d2}({d2 / self.buffer_size * 100}%)")
+        print(f"Buffer: d0 {d0}({d0 / self.buffer_size * 100}.2f%), d1 {d1}({d1 / self.buffer_size * 100}.2f%),"
+              f"d2 {d2}({d2 / self.buffer_size * 100}.2f%)")
