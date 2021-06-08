@@ -1,11 +1,12 @@
 import torch
 import statistics
-import matplotlib.pyplot as plt
+import datetime
 
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from utils.buffer import Buffer
-from utils.utils import binary_accuracy
+from utils.utils import binary_accuracy, check_buffer_distribution
+from torch.utils.tensorboard import SummaryWriter
 
 
 def train(model, loss, batch_size, data_set, epochs, optimizer, index, buffer, device):
@@ -14,6 +15,7 @@ def train(model, loss, batch_size, data_set, epochs, optimizer, index, buffer, d
                               shuffle=False)  # DIM ORIGINALE SENZA REPLAY
     domain_acc = []
     domain_loss = []
+
     for epoch in tqdm(range(epochs)):
         epoch_loss = []
         epoch_acc = []
@@ -39,6 +41,7 @@ def train(model, loss, batch_size, data_set, epochs, optimizer, index, buffer, d
 
             s_loss.backward()
             optimizer.step()
+
             if epoch == 0:
                 buffer.add_data(examples=x.to(device), labels=y.to(device))
             # buffer.add_data(examples=x.cuda(), labels=y.cuda())
@@ -96,24 +99,16 @@ def train_cl(train_set, test_set, model, loss, optimizer, device, config):
         test_loader = DataLoader(test_set[index], batch_size=1, shuffle=False)  # DIM ORIGINALE SENZA REPLAY
         test(model, loss, test_loader, device)
 
-    d0 = 0
-    d1 = 0
-    d2 = 0
-    for data in buffer.examples:
-        if data[4] == 0:
-            d0 += 1
-        if data[4] == 1:
-            d1 += 1
-        if data[4] == 2:
-            d2 += 1
-
-    print(f"Buffer: d0 {d0}, d1 {d1},d2 {d2}")
+    # Test to check buffer distribuition
+    check_buffer_distribution(buffer)
 
 
-def train_online(data, model, loss, optimizer, epochs, index, device):
-    bce = []
-    accuracy = []
+def train_online(data, model, loss, optimizer, epochs, device):
+    # bce = []
+    # accuracy = []
     model.train()
+
+    writer = SummaryWriter('./runs/online/train/' + datetime.datetime.now().strftime('%m_%d_%H_%M'))
 
     for i in tqdm(range(epochs)):
         epoch_loss = []
@@ -135,25 +130,27 @@ def train_online(data, model, loss, optimizer, epochs, index, device):
             s_loss.backward()
             optimizer.step()
 
+        writer.add_scalar('Train/Loss', statistics.mean(epoch_loss), i)
+        writer.add_scalar('Train/Accuracy', statistics.mean(epoch_acc), i)
         if i % 50 == 0:
             print(f'\nEpoch {i:03}/{epochs} | Loss: {statistics.mean(epoch_loss):.5f} '
                   f'| Acc: {statistics.mean(epoch_acc):.5f}')
 
-        bce.append(statistics.mean(epoch_loss))
-        accuracy.append(statistics.mean(epoch_acc))
+        # bce.append(statistics.mean(epoch_loss))
+        # accuracy.append(statistics.mean(epoch_acc))
 
-    plt.plot(bce, label='BCE')
-    plt.autoscale(axis='x', tight=True)
-    title = " Train BCE domain " + str(index)
-    plt.title(title)
-    plt.legend(loc='best')
-    plt.show()
-
-    plt.plot(accuracy, label='accuracy')
-    plt.autoscale(axis='x', tight=True)
-    title = "Train Accuracy domain " + str(index)
-    plt.title(title)
-    plt.legend(loc='best')
-    plt.show()
+    # plt.plot(bce, label='BCE')
+    # plt.autoscale(axis='x', tight=True)
+    # title = " Train BCE domain " + str(index)
+    # plt.title(title)
+    # plt.legend(loc='best')
+    # plt.show()
+    #
+    # plt.plot(accuracy, label='accuracy')
+    # plt.autoscale(axis='x', tight=True)
+    # title = "Train Accuracy domain " + str(index)
+    # plt.title(title)
+    # plt.legend(loc='best')
+    # plt.show()
 
     torch.save(model.state_dict(), 'model.pt')

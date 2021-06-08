@@ -101,7 +101,7 @@ def main(config):
                 train_loader = DataLoader(train_set, batch_size=config["batch_size"], shuffle=False)
                 if index != 0:
                     model.load_state_dict(torch.load('model.pt'))
-                train_online(train_loader, model=model, loss=loss, optimizer=optimizer, epochs=epochs, index=index,
+                train_online(train_loader, model=model, loss=loss, optimizer=optimizer, epochs=epochs,
                              device=device)
                 # test domain just trained
                 test_loader = DataLoader(test_data[index], batch_size=1, shuffle=False)

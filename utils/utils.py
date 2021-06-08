@@ -79,3 +79,19 @@ def binary_accuracy(y_pred, y_true):
     acc = result_sum / y_true.shape[0]
     acc = torch.round(acc * 100)
     return acc
+
+
+# TODO Put into buffer.py
+def check_buffer_distribution(buffer):
+    d0 = 0
+    d1 = 0
+    d2 = 0
+    for data in buffer.examples:
+        if data[4] == 0:
+            d0 += 1
+        if data[4] == 1:
+            d1 += 1
+        if data[4] == 2:
+            d2 += 1
+
+    print(f"Buffer: d0 {d0}, d1 {d1},d2 {d2}")
