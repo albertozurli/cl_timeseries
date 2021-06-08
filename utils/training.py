@@ -34,7 +34,7 @@ def test(model, loss, test_loader, device):
             test_acc.append(acc.item())
             test_loss.append(s_loss.item())
 
-    print(f"Test error: {statistics.mean(test_loss)} | Test accuracy: {statistics.mean(test_acc):.5f}")
+    print(f"Test error: {statistics.mean(test_loss):.5f} | Test accuracy: {statistics.mean(test_acc):.5f}")
 
 
 def train_cl(train_set, test_set, model, loss, optimizer, device, config):
