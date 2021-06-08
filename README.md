@@ -11,8 +11,8 @@ Input data can also be pre-processed with `--processing`:
 * `--difference`
 * To update
 
-An example of BOCD heatmap is available at `notebook/chp_analysis.ipynb`
-(As discussed with J)
+An example of BOCD is available at `notebook/chp_analysis.ipynb` 
+and running `python ./main.py --split`
 
 ## Package and dependencies:
 
@@ -30,25 +30,27 @@ pip install -r requirements.txt
 ```
  in main project repo
 
-## Training:
+## Online learning:
 
 Model can be executed for both regression and classification (regression not working at this moment)
 
-Online training:
+Online training and testing:
 ```
-python ./main.py --online --train
+python ./main.py --online 
 ```
 
+## Continual learning with ER:
 
-## Testing:
-
-Online testing:
+Continual training and testing:
 ```
-python ./main.py --online --test
+python ./main.py --continual
 ```
 
 ### TO DO:
 * Add indicators( from TA-LIB) as a feature
-* Implement buffer for ER
+* Add cl metrics(forward/backward transfer and forgetting) 
 * Fix Tensorboard
+* Test with different buffer size [50,100,200,500] (1000 is imposible with oil monthly dataset,maybe it works with others)
+* Test with different sequence timestep (actually 4 weeks of observation and prediction next month)
+
 

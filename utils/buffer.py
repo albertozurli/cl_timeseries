@@ -1,6 +1,5 @@
 import torch
 import numpy as np
-from typing import Tuple
 
 
 def reservoir(seen_examples, buffer_size):
@@ -55,16 +54,15 @@ class Buffer:
         :return:
         """
         if size > min(self.seen_examples, len([x for x in self.examples if x is not None])):
-            size = min(self.seen_examples,  len([x for x in self.examples if x is not None]))
-            # size = min(self.seen_examples, self.examples.shape[0])
+            size = min(self.seen_examples, len([x for x in self.examples if x is not None]))
 
-        choice = np.random.choice(min(self.seen_examples,  len([x for x in self.examples if x is not None])),
+        choice = np.random.choice(min(self.seen_examples, len([x for x in self.examples if x is not None])),
                                   size=size, replace=False)
 
         ret_examples = [self.examples[idx] for idx in choice]
         ret_labels = [self.labels[idx] for idx in choice]
 
-        return ret_examples,ret_labels
+        return ret_examples, ret_labels
 
     def is_empty(self):
         """"
@@ -95,3 +93,16 @@ class Buffer:
             if hasattr(self, attr_str):
                 delattr(self, attr_str)
         self.seen_examples = 0
+
+    def check_distribution(self):
+        d0, d1, d2 = 0, 0, 0
+        for data in self.examples:
+            if data[4] == 0:
+                d0 += 1
+            if data[4] == 1:
+                d1 += 1
+            if data[4] == 2:
+                d2 += 1
+
+        print(f"Buffer: d0 {d0}({d0 / self.buffer_size * 100}%), d1 {d1}({d1 / self.buffer_size * 100}%),"
+              f"d2 {d2}({d2 / self.buffer_size * 100}%)")

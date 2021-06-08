@@ -11,7 +11,7 @@ from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWa
 from torch.utils.data import DataLoader
 from utils.training import test, train_online, train_cl
 from utils.models import RegressionMLP, ClassficationMLP
-from utils.utils import read_csv, split_train_test, compute_diff
+from utils.utils import read_csv, split_train_test, compute_diff, eval_bayesian
 
 warnings.simplefilter('ignore', category=NumbaDeprecationWarning)
 warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
@@ -28,10 +28,6 @@ parser.add_argument('--filename', type=str, default="brent-monthly.csv",
                     help="CSV file(default: brent-monthly.csv)")
 parser.add_argument('--buffer_size', type=int, default=500,
                     help="Size of the buffer for ER (default: 500")
-parser.add_argument('--train', action='store_true',
-                    help="Train the model")
-parser.add_argument('--test', action='store_true',
-                    help="Test the model")
 parser.add_argument('--regression', action='store_true',
                     help="Regression task")
 parser.add_argument('--online', action='store_true',
@@ -40,6 +36,8 @@ parser.add_argument('--continual', action='store_true',
                     help="Continual Learning with ER")
 parser.add_argument('--processing', default='none', choices=['none', 'difference'],
                     help="Type of pre-processing")
+parser.add_argument('--split', action='store_true',
+                    help="Show domain split")
 
 
 def main(config):
@@ -50,24 +48,17 @@ def main(config):
     chp_online = det.find_changepoints(raw_data, past=50, prob_threshold=0.3)
     chps = chp_online[1:]
 
-    # print(chp_online)
-    # plt.figure(figsize=(10, 6))
-    # plt.plot(raw_data)
-    # for i in chps:
-    #     plt.axvline(i, color="red")
-    # plt.title("Bayesian Online")
-    # plt.show()
+    # Evaluation bayesian analysis
+    if config['split']:
+        eval_bayesian(chps, raw_data)
 
-    # Test grafico per valutare gli split
-    # test,train = split(raw_data,chps)
-
-    # if config['processing'] == 'none': Default everytime
+    # if config['processing'] == 'none': Default
     raw_data = numpy.array(raw_data).reshape(-1, 1)
 
     if config['processing'] == 'difference':
         raw_data = compute_diff(raw_data)
 
-    # Split in N train/test set (data + domain feature)
+    # Split in N train/test set (data + feature)
     train_data, test_data = split_train_test(raw_data, chps, 4)
 
     # Cuda
@@ -75,51 +66,38 @@ def main(config):
     print(f"Device: {device}")
     print(torch.cuda.get_device_name(0))
 
-    # Setup and train the model
+    # Setup the model
     if config["regression"]:
         model = RegressionMLP(input_size=5)
         model = model.to(device)
-        # model = model.cuda()
         loss = nn.MSELoss()
         optimizer = torch.optim.Adadelta(model.parameters(), lr=config["lr"])
     else:
         model = ClassficationMLP(input_size=5)
         model = model.to(device)
-        # model = model.cuda()
         loss = nn.BCELoss()
         optimizer = torch.optim.Adam(model.parameters(), lr=config["lr"])
 
     epochs = config["epochs"]
     print(model)
 
+    # Online training
     if config["online"]:
-        if config["train"]:
-            for index, train_set in enumerate(train_data):
-                print(f"----- DOMAIN {index} -----")
-                train_loader = DataLoader(train_set, batch_size=config["batch_size"], shuffle=False)
-                if index != 0:
-                    model.load_state_dict(torch.load('model.pt'))
-                train_online(train_loader, model=model, loss=loss, optimizer=optimizer, epochs=epochs,
-                             device=device)
-                # test domain just trained
-                test_loader = DataLoader(test_data[index], batch_size=1, shuffle=False)
+        for index, train_set in enumerate(train_data):
+            print(f"----- DOMAIN {index} -----")
+            train_loader = DataLoader(train_set, batch_size=config["batch_size"], shuffle=False)
+            train_online(train_loader, model=model, loss=loss, optimizer=optimizer, epochs=epochs,
+                         device=device, domain=index)
+            # Test on domain just trained + old domains
+            for past in range(index+1):
+                print(f"Testing model on domain {past}")
+                test_loader = DataLoader(test_data[past], batch_size=1, shuffle=False)
                 test(model=model, loss=loss, test_loader=test_loader, device=device)
 
-        if config["test"]:
-            print("-------------------")
-            for idx, test_set in enumerate(test_data):
-                print(f"\n DOMAIN {idx}")
-                test_loader = DataLoader(test_set, batch_size=1, shuffle=False)
-                test(model=model, loss=loss, test_loader=test_loader, device=device)
-
+    # Continual learning with ER
     if config['continual']:
         train_cl(train_set=train_data, test_set=test_data, model=model, loss=loss,
                  optimizer=optimizer, config=config, device=device)
-        print("-------------------")
-        for idx, test_set in enumerate(test_data):
-            print(f"\n DOMAIN {idx}")
-            test_loader = DataLoader(test_set, batch_size=1, shuffle=False)
-            test(model=model, loss=loss, test_loader=test_loader, device=device)
 
 
 if __name__ == "__main__":
