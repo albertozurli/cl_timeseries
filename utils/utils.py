@@ -2,15 +2,82 @@ import statistics
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
+import talib
+
 from pathlib import Path
 
 
 def compute_diff(data):
-    diff = np.diff(data, axis=0)
+    diff = np.diff(np.array(data), axis=0)
     return diff.tolist()
 
 
-def split_train_test(data, chps, n_step):
+def indicators(data):
+    """
+    :param data: data
+    :return: np array of each indicator
+    """
+    cmo = talib.CMO(np.array(data), timeperiod=10).reshape(-1, 1)
+    roc = talib.ROC(np.array(data), timeperiod=5).reshape(-1, 1)
+    rsi = talib.RSI(np.array(data), timeperiod=5).reshape(-1, 1)
+    wma = talib.WMA(np.array(data), timeperiod=20).reshape(-1, 1)
+    ppo = talib.PPO(np.array(data), fastperiod=10, slowperiod=20, matype=0).reshape(-1, 1)
+    return cmo, roc, rsi, wma, ppo
+
+
+def split_with_indicators(data, chps, n_step):
+    """
+    :param data: data
+    :param chps: list of changepoint detected
+    :param n_step: size of a sequence
+    :return: train set and test set divided
+    """
+    train_data = []
+    test_data = []
+
+    cmo, roc, rsi, wma, ppo = indicators(data)
+    data = np.array(data).reshape(-1, 1)
+    data_split = np.split(data, chps)
+    cmo_split = np.split(cmo, chps)
+    roc_split = np.split(roc, chps)
+    rsi_split = np.split(rsi, chps)
+    wma_split = np.split(wma, chps)
+    ppo_split = np.split(ppo, chps)
+    for index, (subdata, subcmo, subroc, subrsi, subwma, subppo) in \
+            enumerate(zip(data_split, cmo_split, roc_split, rsi_split, wma_split, ppo_split)):
+        seq = []
+        i = 0
+        while i < len(subdata):
+            end_seq = i + n_step
+            if end_seq > (len(subdata) - 4):
+                break
+            seq_x, y = subdata[i:end_seq], subdata[end_seq + 3]
+            seq_cmo = subcmo[i:end_seq]
+            seq_roc = subroc[i:end_seq]
+            seq_rsi = subrsi[i:end_seq]
+            seq_wma = subwma[i:end_seq]
+            seq_ppo = subppo[i:end_seq]
+            domain = index
+            input = np.concatenate((seq_x, seq_cmo, seq_roc, seq_rsi, seq_wma, seq_ppo), axis=0)
+            input = np.append(input, domain)
+
+            label = 0.  # Target value lower or equal than input sequence
+            if y > statistics.mean(seq_x.flatten()):
+                label = 1.  # Target value greater than input sequence
+
+            input = torch.Tensor(input)
+            label = torch.Tensor(np.array(label))
+            if not torch.isnan(torch.sum(input)):
+                seq.append((input, label))
+            i += 1
+
+        train_data.append(seq[:round(len(seq) * 0.75)])
+        test_data.append(seq[round(len(seq) * 0.75):])
+
+    return train_data, test_data
+
+
+def split_data(data, chps, n_step):
     """
     :param data: data
     :param chps: list of changepoint detected

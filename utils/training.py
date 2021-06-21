@@ -47,13 +47,16 @@ def train_cl(train_set, test_set, model, loss, optimizer, device, config):
     :param device: device cuda/cpu
     :param config: configuration
     """
+
+    global_writer = SummaryWriter('./runs/continual/train/global/' + datetime.datetime.now().strftime('%m_%d_%H_%M'))
     buffer = Buffer(config['buffer_size'], device)
-    for index, data_set in enumerate(train_set):  # PER OGNI TASK
+    for index, data_set in enumerate(train_set):
         model.train()
         print(f"----- DOMAIN {index} -----")
-        # train(model, loss, config['batch_size'], data_set, config['epochs'], optimizer, buffer, device)
         print("Training model...")
         train_loader = DataLoader(data_set, batch_size=config['batch_size'], shuffle=False)
+        # domain_writer = SummaryWriter(
+        #     f'./runs/continual/train/domain_{index}/' + datetime.datetime.now().strftime('%m_%d_%H_%M'))
 
         for epoch in tqdm(range(config['epochs'])):
             epoch_loss = []
@@ -83,6 +86,14 @@ def train_cl(train_set, test_set, model, loss, optimizer, device, config):
                 if epoch == 0:
                     buffer.add_data(examples=x.to(device), labels=y.to(device))
 
+            global_writer.add_scalar('Train_global/Loss', statistics.mean(epoch_loss),
+                                     epoch + (config['epochs'] * index))
+            global_writer.add_scalar('Train_global/Accuracy', statistics.mean(epoch_acc),
+                                     epoch + (config['epochs'] * index))
+
+            # domain_writer.add_scalar(f'Train_D{index}/Loss', statistics.mean(epoch_loss), epoch)
+            # domain_writer.add_scalar(f'Train_D{index}/Accuracy', statistics.mean(epoch_acc), epoch)
+
             if epoch % 100 == 0:
                 print(f'\nEpoch {epoch:03}/{config["epochs"]} | Loss: {statistics.mean(epoch_loss):.5f} '
                       f'| Acc: {statistics.mean(epoch_acc):.5f}')
@@ -98,11 +109,11 @@ def train_cl(train_set, test_set, model, loss, optimizer, device, config):
             test_loader = DataLoader(test_set[past], batch_size=1, shuffle=False)
             test(model, loss, test_loader, device)
 
-    # Test to check buffer distribution
+    # Check buffer distribution
     buffer.check_distribution()
 
 
-def train_online(data, model, loss, optimizer, epochs, device, domain):
+def train_online(data, model, loss, optimizer, epochs, device, domain, global_writer):
     """
     :param data: data
     :param model: PyTorch model
@@ -111,12 +122,13 @@ def train_online(data, model, loss, optimizer, epochs, device, domain):
     :param epochs: training epochs
     :param device: device cuda/cpu
     :param domain: domain
+    :param global_writer: global SummaryWriter for tensorboard
     """
     print("Training model...")
     model.train()
 
-    # TODO better same plot for all domains or one for each?
-    writer = SummaryWriter('./runs/online/train/' + datetime.datetime.now().strftime('%m_%d_%H_%M'))
+    # domain_writer = SummaryWriter(
+    #     f'./runs/online/train/domain_{domain}/' + datetime.datetime.now().strftime('%m_%d_%H_%M'))
 
     for i in tqdm(range(epochs)):
         epoch_loss = []
@@ -136,8 +148,12 @@ def train_online(data, model, loss, optimizer, epochs, device, domain):
             s_loss.backward()
             optimizer.step()
 
-        writer.add_scalar('Train/Loss', statistics.mean(epoch_loss), i)
-        writer.add_scalar('Train/Accuracy', statistics.mean(epoch_acc), i)
+        global_writer.add_scalar('Train_global/Loss', statistics.mean(epoch_loss), i + (epochs * domain))
+        global_writer.add_scalar('Train_global/Accuracy', statistics.mean(epoch_acc), i + (epochs * domain))
+
+        # domain_writer.add_scalar(f'Train_D{domain}/Loss', statistics.mean(epoch_loss), i)
+        # domain_writer.add_scalar(f'Train_D{domain}/Accuracy', statistics.mean(epoch_acc), i)
+
         if i % 100 == 0:
             print(f'\nEpoch {i:03}/{epochs} | Loss: {statistics.mean(epoch_loss):.5f} '
                   f'| Acc: {statistics.mean(epoch_acc):.5f}')

@@ -96,13 +96,14 @@ class Buffer:
 
     def check_distribution(self):
         d0, d1, d2 = 0, 0, 0
+        index = self.examples[0].size()[0] - 1
         for data in self.examples:
-            if data[4] == 0:
+            if data[index] == 0:
                 d0 += 1
-            if data[4] == 1:
+            if data[index] == 1:
                 d1 += 1
-            if data[4] == 2:
+            if data[index] == 2:
                 d2 += 1
 
-        print(f"Buffer: d0 {d0}({d0 / self.buffer_size * 100}.2f%), d1 {d1}({d1 / self.buffer_size * 100}.2f%),"
-              f"d2 {d2}({d2 / self.buffer_size * 100}.2f%)")
+        print(f"Buffer: d0 {d0}({d0 / self.buffer_size * 100}%), d1 {d1}({d1 / self.buffer_size * 100}%),"
+              f"d2 {d2}({d2 / self.buffer_size * 100}%)")
