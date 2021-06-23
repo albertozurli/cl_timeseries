@@ -7,6 +7,7 @@ from tqdm import tqdm
 from utils.buffer import Buffer
 from utils.utils import binary_accuracy
 from torch.utils.tensorboard import SummaryWriter
+from utils.metrics import backward_transfer, forward_transfer, forgetting
 
 
 def test(model, loss, test_loader, device):
@@ -35,6 +36,23 @@ def test(model, loss, test_loader, device):
             test_loss.append(s_loss.item())
 
     print(f"Test error: {statistics.mean(test_loss):.5f} | Test accuracy: {statistics.mean(test_acc):.5f}")
+    return statistics.mean(test_acc)
+
+
+def evaluate_next(model, domain, test_set, loss, device):
+    test_loader = DataLoader(test_set[domain + 1], batch_size=1, shuffle=False)
+    accuracy = test(model, loss, test_loader, device)
+    return accuracy
+
+
+def evaluate_past(model, domain, test_set, loss, device):
+    accs = []
+    for past in range(domain + 1):
+        print(f"Testing model on domain {past}")
+        test_loader = DataLoader(test_set[past], batch_size=1, shuffle=False)
+        accuracy = test(model, loss, test_loader, device)
+        accs.append(accuracy)
+    return accs
 
 
 def train_cl(train_set, test_set, model, loss, optimizer, device, config):
@@ -50,6 +68,11 @@ def train_cl(train_set, test_set, model, loss, optimizer, device, config):
 
     global_writer = SummaryWriter('./runs/continual/train/global/' + datetime.datetime.now().strftime('%m_%d_%H_%M'))
     buffer = Buffer(config['buffer_size'], device)
+    accuracy = []
+
+    # Eval without training
+    random_accuracy = evaluate_past(model, len(test_set) - 1, test_set, loss, device)
+
     for index, data_set in enumerate(train_set):
         model.train()
         print(f"----- DOMAIN {index} -----")
@@ -104,13 +127,21 @@ def train_cl(train_set, test_set, model, loss, optimizer, device, config):
                       f'| Acc: {statistics.mean(epoch_acc):.5f}')
 
         # Test on domain just trained + old domains
-        for past in range(index + 1):
-            print(f"Testing model on domain {past}")
-            test_loader = DataLoader(test_set[past], batch_size=1, shuffle=False)
-            test(model, loss, test_loader, device)
+        accuracy.append(evaluate_past(model, index, test_set, loss, device))
+        if index != len(train_set) - 1:
+            # accuracy[index] = accuracy[index] + evaluate_next(model, index, test_set, loss, device)
+            accuracy[index].append(evaluate_next(model, index, test_set, loss, device))
 
     # Check buffer distribution
     buffer.check_distribution()
+
+    # Compute transfer metrics
+    backward = backward_transfer(accuracy)
+    forward = forward_transfer(accuracy, random_accuracy)
+    forget = forgetting(accuracy)
+    print(f'Backward transfer: {backward}')  # todo Sono % in accuracy?
+    print(f'Forward transfer: {forward}')
+    print(f'Forgetting: {forget}')
 
 
 def train_online(data, model, loss, optimizer, epochs, device, domain, global_writer):

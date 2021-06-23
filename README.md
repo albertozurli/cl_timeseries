@@ -49,8 +49,7 @@ python ./main.py --continual
 ```
 
 ### TO DO:
-* Add cl metrics(forward/backward transfer and forgetting)
 * Test with different buffer size [50,100,200,500] (1000 is imposible with oil monthly dataset,maybe it works with others)
-* Test with different sequence timestep (actually 4 weeks of observation and prediction next month)
+* Test with different sequence timestep (actually 4 weeks of observation and prediction 4 weeks later)
 
 
