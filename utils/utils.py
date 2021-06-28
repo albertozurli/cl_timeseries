@@ -25,6 +25,17 @@ def indicators(data):
     return cmo, roc, rsi, wma, ppo
 
 
+def timeperiod(filename):
+    month = "monthly"
+    day = "daily"
+    if month in filename:
+        return 4
+    elif day in filename:
+        return 30
+    else:
+        return 0
+
+
 def split_with_indicators(data, chps, n_step):
     """
     :param data: data
@@ -49,9 +60,9 @@ def split_with_indicators(data, chps, n_step):
         i = 0
         while i < len(subdata):
             end_seq = i + n_step
-            if end_seq > (len(subdata) - 4):
+            if end_seq > (len(subdata) - n_step):
                 break
-            seq_x, y = subdata[i:end_seq], subdata[end_seq + 3]
+            seq_x, y = subdata[i:end_seq], subdata[end_seq + n_step - 1]
             seq_cmo = subcmo[i:end_seq]
             seq_roc = subroc[i:end_seq]
             seq_rsi = subrsi[i:end_seq]
@@ -92,9 +103,9 @@ def split_data(data, chps, n_step):
         i = 0
         while i < len(subdata):
             end_seq = i + n_step
-            if end_seq > (len(subdata) - 4):
+            if end_seq > (len(subdata) - n_step):
                 break
-            seq_x, y = subdata[i:end_seq], subdata[end_seq + 3]
+            seq_x, y = subdata[i:end_seq], subdata[end_seq + n_step - 1]
             domain = index
             input = np.append(seq_x, domain)
 
@@ -124,6 +135,20 @@ def read_csv(filename):
     value_list.pop(0)
     value_list = [float(i) for i in value_list]
     return value_list
+
+
+def check_changepoints(filename):
+    path = Path.cwd()
+    file_path = path.joinpath('chp_list.txt')
+    lines = [x.strip() for x in open(file_path, 'r').readlines()]
+    chps = np.zeros(1)
+    for l in lines:
+        tmp = l.split(',')
+        if tmp[0] == filename:
+            value_list = tmp[1:]
+            chps = np.array(value_list, dtype=np.int)
+            return True, chps
+    return False, chps
 
 
 def binary_accuracy(y_pred, y_true):

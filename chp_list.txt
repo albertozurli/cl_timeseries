@@ -1,0 +1,6 @@
+oil-monthly.csv,634,1118
+oil-daily.csv,2576,3983,5889,7301
+sugar-daily.csv,626,1605,2621,3883
+coffee-daily.csv,991,2178,3515
+copper-daily.csv,1399,2225,4043
+gold-daily.csv,3143

@@ -8,13 +8,10 @@ class RegressionMLP(nn.Module):
         self.net = nn.Sequential(
             nn.Linear(input_size, 100),
             nn.ReLU(),
-            nn.Dropout(0.2),
             nn.Linear(100, 50),
             nn.ReLU(),
-            nn.Dropout(0.2),
             nn.Linear(50, 25),
             nn.ReLU(),
-            nn.Dropout(0.2),
             nn.Linear(25, 1),
         )
 
@@ -28,16 +25,13 @@ class ClassficationMLP(nn.Module):
         super(ClassficationMLP, self).__init__()
         self.input_size = input_size
         self.net = nn.Sequential(
-            nn.Linear(input_size, 100),
+            nn.Linear(input_size, 80),
             nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(100, 50),
+            nn.Dropout(0.5),
+            nn.Linear(80, 40),
             nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(50, 25),
-            nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(25, 1),
+            nn.Dropout(0.5),
+            nn.Linear(40, 1),
             nn.Sigmoid()
         )
 

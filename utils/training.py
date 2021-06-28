@@ -66,20 +66,25 @@ def train_cl(train_set, test_set, model, loss, optimizer, device, config):
     :param config: configuration
     """
 
-    global_writer = SummaryWriter('./runs/continual/train/global/' + datetime.datetime.now().strftime('%m_%d_%H_%M'))
+    name = ""
+    # global_writer = SummaryWriter('./runs/continual/train/global/' + datetime.datetime.now().strftime('%m_%d_%H_%M'))
+    global_writer = SummaryWriter('./runs/continual/train/global/' + name)
     buffer = Buffer(config['buffer_size'], device)
     accuracy = []
+    text = open("result_" + name + ".txt", "w")  # TODO save results in a .txt file
 
     # Eval without training
     random_accuracy = evaluate_past(model, len(test_set) - 1, test_set, loss, device)
+    text.write("Evaluation before training" + '\n')
+    for a in random_accuracy:
+        text.write(f"{a:.2f}% ")
+    text.write('\n')
 
     for index, data_set in enumerate(train_set):
         model.train()
         print(f"----- DOMAIN {index} -----")
         print("Training model...")
         train_loader = DataLoader(data_set, batch_size=config['batch_size'], shuffle=False)
-        # domain_writer = SummaryWriter(
-        #     f'./runs/continual/train/domain_{index}/' + datetime.datetime.now().strftime('%m_%d_%H_%M'))
 
         for epoch in tqdm(range(config['epochs'])):
             epoch_loss = []
@@ -127,9 +132,14 @@ def train_cl(train_set, test_set, model, loss, optimizer, device, config):
                       f'| Acc: {statistics.mean(epoch_acc):.5f}')
 
         # Test on domain just trained + old domains
-        accuracy.append(evaluate_past(model, index, test_set, loss, device))
+        evaluation = evaluate_past(model, index, test_set, loss, device)
+        accuracy.append(evaluation)
+        text.write(f"Evaluation after domain {index}" + '\n')
+        for a in evaluation:
+            text.write(f"{a:.2f}% ")
+        text.write('\n')
+
         if index != len(train_set) - 1:
-            # accuracy[index] = accuracy[index] + evaluate_next(model, index, test_set, loss, device)
             accuracy[index].append(evaluate_next(model, index, test_set, loss, device))
 
     # Check buffer distribution
@@ -139,9 +149,14 @@ def train_cl(train_set, test_set, model, loss, optimizer, device, config):
     backward = backward_transfer(accuracy)
     forward = forward_transfer(accuracy, random_accuracy)
     forget = forgetting(accuracy)
-    print(f'Backward transfer: {backward}')  # todo Sono % in accuracy?
+    print(f'Backward transfer: {backward}')  # todo Sono in %?
     print(f'Forward transfer: {forward}')
     print(f'Forgetting: {forget}')
+
+    text.write(f"Backward: {backward}\n")
+    text.write(f"Forward: {forward}\n")
+    text.write(f"Forgetting: {forget}\n")
+    text.close()
 
 
 def train_online(data, model, loss, optimizer, epochs, device, domain, global_writer):
