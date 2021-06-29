@@ -76,7 +76,7 @@ def train_er(train_set, test_set, model, loss, optimizer, device, config, suffix
     """
 
     # global_writer = SummaryWriter('./runs/continual/train/global/' + datetime.datetime.now().strftime('%m_%d_%H_%M'))
-    global_writer = SummaryWriter('./runs/continual/train/global/' + suffix)
+    global_writer = SummaryWriter('./runs/continual/' + suffix)
     buffer = Buffer(config['buffer_size'], device)
     accuracy = []
 
@@ -185,7 +185,7 @@ def train_online(train_set, test_set, model, loss, optimizer, device, config, su
     """
 
     text_file = open("result_" + suffix + ".txt", "a")
-    global_writer = SummaryWriter('./runs/online/train/global/' + suffix)
+    global_writer = SummaryWriter('./runs/online/' + suffix)
 
     # Eval without training
     print("-----EVAL PRE-TRAINING-----")

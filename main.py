@@ -37,6 +37,8 @@ parser.add_argument('--processing', default='none', choices=['none', 'difference
                     help="Type of pre-processing")
 parser.add_argument('--split', action='store_true',
                     help="Show domain split")
+parser.add_argument('--suffix', type=str, default="",
+                    help="Suffix name")
 
 
 def main(config):
@@ -84,20 +86,32 @@ def main(config):
         model = ClassficationMLP(input_size=input_size)
         model = model.to(device)
         loss = nn.BCELoss()
-        optimizer = torch.optim.Adam(model.parameters(), lr=config["lr"])
+        optimizer = torch.optim.SGD(model.parameters(), lr=config["lr"])
+        torch.save({'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    }, 'checkpoints/model_scratch.pt')
 
     print(model)
 
-    suffix = config['filename'].partition('-')[0]
+    if not config['suffix']:
+        suffix = config['filename'].partition('-')[0]
+    else:
+        suffix = config['suffix']
 
     # Online training
     if config["online"]:
+        initial_model = torch.load('checkpoints/model_scratch.pt')
+        model.load_state_dict(initial_model['model_state_dict'])
+        optimizer.load_state_dict(initial_model['optimizer_state_dict'])
         train_online(train_set=train_data, test_set=test_data, model=model, loss=loss,
                      optimizer=optimizer, config=config, device=device, suffix=suffix)
     # Continual learning with ER
     if config['er']:
-        train_er(train_set=train_data, test_set=test_data, model=model, loss=loss, optimizer=optimizer, device=device,
-                 config=config, suffix=suffix)
+        initial_model = torch.load('checkpoints/model_scratch.pt')
+        model.load_state_dict(initial_model['model_state_dict'])
+        optimizer.load_state_dict(initial_model['optimizer_state_dict'])
+        train_er(train_set=train_data, test_set=test_data, model=model, loss=loss,
+                 optimizer=optimizer, device=device, config=config, suffix=suffix)
 
 
 if __name__ == "__main__":
