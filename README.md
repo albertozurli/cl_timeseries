@@ -14,6 +14,7 @@ Input data can also be pre-processed with `--processing`:
 An example of BOCD is available at `notebook/chp_analysis.ipynb` 
 and running `python ./main.py --split`
 
+
 ## Package and dependencies:
 
 First, install the BOCD package via
@@ -45,11 +46,10 @@ python ./main.py --online
 
 Continual training and testing:
 ```
-python ./main.py --continual
+python ./main.py --er
 ```
 
 ### TO DO:
-* Test with different buffer size [50,100,200,500] (1000 is imposible with oil monthly dataset,maybe it works with others)
 * Test with different sequence timestep (actually 4 weeks of observation and prediction 4 weeks later)
-
-
+* Implement regularization (EWC,LwF) and architectural (PNN) methods, if possible in Domain-IL scenario
+* Save results(loss, accuracy) in a file, actually in a .txt but in the future .csv is better 

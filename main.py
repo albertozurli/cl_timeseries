@@ -2,15 +2,12 @@ import argparse
 import os
 import warnings
 import torch
-import datetime
-import utils.training
 
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
-from torch.utils.data import DataLoader
 from utils.models import RegressionMLP, ClassficationMLP
-from utils.utils import read_csv, split_data, split_with_indicators, compute_diff, eval_bayesian, check_changepoints,\
+from utils.training import train_er, train_online
+from utils.utils import read_csv, split_data, split_with_indicators, compute_diff, eval_bayesian, check_changepoints, \
     timeperiod
-from torch.utils.tensorboard import SummaryWriter
 
 import numpy as np
 import torch.nn as nn
@@ -27,15 +24,14 @@ parser.add_argument('--epochs', type=int, default=500,
                     help="Number of train epochs (default: 500)")
 parser.add_argument('--lr', type=float, default=0.0001,
                     help="Learning rate (default: 0.0001)")
-parser.add_argument('--filename', type=str, default="oil-daily.csv",
-                    help="CSV file")
+parser.add_argument('--filename', type=str, help="CSV file")
 parser.add_argument('--buffer_size', type=int, default=500,
                     help="Size of the buffer for ER (default: 500")
 parser.add_argument('--regression', action='store_true',
                     help="Regression task")
 parser.add_argument('--online', action='store_true',
                     help="Online Learning")
-parser.add_argument('--continual', action='store_true',
+parser.add_argument('--er', action='store_true',
                     help="Continual Learning with ER")
 parser.add_argument('--processing', default='none', choices=['none', 'difference', 'indicators'],
                     help="Type of pre-processing")
@@ -65,11 +61,9 @@ def main(config):
     # Split in N train/test set (data + feature)
     if config['processing'] == 'indicators':
         train_data, test_data = split_with_indicators(raw_data, chps, n_step)
-
     elif config['processing'] == 'difference':
         raw_data = compute_diff(raw_data)
         train_data, test_data = split_data(raw_data, chps, n_step)
-
     else:
         raw_data = np.array(raw_data).reshape(-1, 1)
         train_data, test_data = split_data(raw_data, chps, n_step)
@@ -92,27 +86,18 @@ def main(config):
         loss = nn.BCELoss()
         optimizer = torch.optim.Adam(model.parameters(), lr=config["lr"])
 
-    epochs = config["epochs"]
     print(model)
+
+    suffix = config['filename'].partition('-')[0]
 
     # Online training
     if config["online"]:
-        global_writer = SummaryWriter('./runs/online/train/global/' + datetime.datetime.now().strftime('%m_%d_%H_%M'))
-        for index, train_set in enumerate(train_data):
-            print(f"----- DOMAIN {index} -----")
-            train_loader = DataLoader(train_set, batch_size=config["batch_size"], shuffle=False)
-            utils.training.train_online(train_loader, model=model, loss=loss, optimizer=optimizer, epochs=epochs,
-                                        device=device, domain=index, global_writer=global_writer)
-            # Test on domain just trained + old domains
-            for past in range(index + 1):
-                print(f"Testing model on domain {past}")
-                test_loader = DataLoader(test_data[past], batch_size=1, shuffle=False)
-                utils.training.test(model=model, loss=loss, test_loader=test_loader, device=device)
-
+        train_online(train_set=train_data, test_set=test_data, model=model, loss=loss,
+                     optimizer=optimizer, config=config, device=device, suffix=suffix)
     # Continual learning with ER
-    if config['continual']:
-        utils.training.train_cl(train_set=train_data, test_set=test_data, model=model, loss=loss,
-                                optimizer=optimizer, config=config, device=device)
+    if config['er']:
+        train_er(train_set=train_data, test_set=test_data, model=model, loss=loss, optimizer=optimizer, device=device,
+                 config=config, suffix=suffix)
 
 
 if __name__ == "__main__":

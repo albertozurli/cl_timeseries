@@ -1,6 +1,5 @@
 import torch
 import statistics
-import datetime
 
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -30,32 +29,41 @@ def test(model, loss, test_loader, device):
             pred = model(x)
             s_loss = loss(pred.squeeze(1), y)
             acc = binary_accuracy(pred.squeeze(1), y)
-
             predicted.append(pred.cpu().numpy().item())
             test_acc.append(acc.item())
             test_loss.append(s_loss.item())
 
-    print(f"Test error: {statistics.mean(test_loss):.5f} | Test accuracy: {statistics.mean(test_acc):.5f}")
-    return statistics.mean(test_acc)
+    print(f"Error: {statistics.mean(test_loss):.2f} | Acc: {statistics.mean(test_acc):.2f}%")
+    return test_acc, test_loss
 
 
 def evaluate_next(model, domain, test_set, loss, device):
+    print("---Eval next domain---")
     test_loader = DataLoader(test_set[domain + 1], batch_size=1, shuffle=False)
-    accuracy = test(model, loss, test_loader, device)
-    return accuracy
+    accuracy, _ = test(model, loss, test_loader, device)
+    return statistics.mean(accuracy)
 
 
 def evaluate_past(model, domain, test_set, loss, device):
     accs = []
+    errors = []
+    mean_accs = []
+    mean_errors = []
+    print("---Eval past domains---")
     for past in range(domain + 1):
-        print(f"Testing model on domain {past}")
+        print(f"Domain {past} | ", end="")
         test_loader = DataLoader(test_set[past], batch_size=1, shuffle=False)
-        accuracy = test(model, loss, test_loader, device)
+        accuracy, error = test(model, loss, test_loader, device)
         accs.append(accuracy)
-    return accs
+        errors.append(error)
+        mean_accs.append(statistics.mean(accuracy))
+        mean_errors.append(statistics.mean(error))
+    flat_accs = [item for sublist in accs for item in sublist]
+    flat_errors = [item for sublist in errors for item in sublist]
+    return flat_accs, flat_errors, mean_accs, mean_errors
 
 
-def train_cl(train_set, test_set, model, loss, optimizer, device, config):
+def train_er(train_set, test_set, model, loss, optimizer, device, config, suffix):
     """
     :param train_set: Train set
     :param test_set: Test set
@@ -64,28 +72,33 @@ def train_cl(train_set, test_set, model, loss, optimizer, device, config):
     :param optimizer: optimizer
     :param device: device cuda/cpu
     :param config: configuration
+    :param suffix: Suffix for the filename and Summary Writer
     """
 
-    name = ""
     # global_writer = SummaryWriter('./runs/continual/train/global/' + datetime.datetime.now().strftime('%m_%d_%H_%M'))
-    global_writer = SummaryWriter('./runs/continual/train/global/' + name)
+    global_writer = SummaryWriter('./runs/continual/train/global/' + suffix)
     buffer = Buffer(config['buffer_size'], device)
     accuracy = []
-    text = open("result_" + name + ".txt", "w")  # TODO save results in a .txt file
+
+    # Save results in a .txt file (write or append)
+    text_file = open("result_" + suffix + ".txt", "a")
 
     # Eval without training
-    random_accuracy = evaluate_past(model, len(test_set) - 1, test_set, loss, device)
-    text.write("Evaluation before training" + '\n')
-    for a in random_accuracy:
-        text.write(f"{a:.2f}% ")
-    text.write('\n')
+    print("-----EVAL PRE-TRAINING-----")
+    text_file.write("\nCONTINUAL LEARNING W\\ ER \n")
+    text_file.write("---Eval pre-training--- \n")
+    random_accuracy, random_error, random_mean_accuracy, random_mean_error \
+        = evaluate_past(model, len(test_set) - 1, test_set, loss, device)
+    print(f"Mean Error: {statistics.mean(random_error):.2f} | Mean Acc: {statistics.mean(random_accuracy):.2f}%")
+    for i, a in enumerate(random_mean_accuracy):
+        text_file.write(f"Domain {i} | Error: {random_mean_error[i]:.2f} | Acc: {a:.2f}%\n")
+    text_file.write(f"Mean Error: {statistics.mean(random_error):.2f} |"
+                    f" Mean Acc: {statistics.mean(random_accuracy):.2f}% \n")
 
     for index, data_set in enumerate(train_set):
         model.train()
         print(f"----- DOMAIN {index} -----")
-        print("Training model...")
         train_loader = DataLoader(data_set, batch_size=config['batch_size'], shuffle=False)
-
         for epoch in tqdm(range(config['epochs'])):
             epoch_loss = []
             epoch_acc = []
@@ -100,7 +113,6 @@ def train_cl(train_set, test_set, model, loss, optimizer, device, config):
                     buf_input, buf_label = buffer.get_data(config['batch_size'])
                     inputs = torch.cat((inputs, torch.stack(buf_input)))
                     labels = torch.cat((labels, torch.stack(buf_label)))
-
                 y_pred = model(inputs)
                 s_loss = loss(y_pred.squeeze(1), labels)
                 acc = binary_accuracy(y_pred.squeeze(1), labels)
@@ -116,96 +128,123 @@ def train_cl(train_set, test_set, model, loss, optimizer, device, config):
 
             global_writer.add_scalar('Train_global/Loss', statistics.mean(epoch_loss),
                                      epoch + (config['epochs'] * index))
-            global_writer.add_scalar('Train_global/Accuracy', statistics.mean(epoch_acc),
+            global_writer.add_scalar('Train_global/Acc', statistics.mean(epoch_acc),
                                      epoch + (config['epochs'] * index))
 
-            # domain_writer.add_scalar(f'Train_D{index}/Loss', statistics.mean(epoch_loss), epoch)
-            # domain_writer.add_scalar(f'Train_D{index}/Accuracy', statistics.mean(epoch_acc), epoch)
-
             if epoch % 100 == 0:
-                print(f'\nEpoch {epoch:03}/{config["epochs"]} | Loss: {statistics.mean(epoch_loss):.5f} '
-                      f'| Acc: {statistics.mean(epoch_acc):.5f}')
+                print(f'\nEpoch {epoch:03}/{config["epochs"]} | Loss: {statistics.mean(epoch_loss):.2f} '
+                      f'| Acc: {statistics.mean(epoch_acc):.2f}%')
 
             # Last epoch (only for stats)
             if epoch == 499:
-                print(f'\nEpoch {epoch:03}/{config["epochs"]} | Loss: {statistics.mean(epoch_loss):.5f} '
-                      f'| Acc: {statistics.mean(epoch_acc):.5f}')
+                print(f'\nEpoch {epoch:03}/{config["epochs"]} | Loss: {statistics.mean(epoch_loss):.2f} '
+                      f'| Acc: {statistics.mean(epoch_acc):.2f}% \n')
 
         # Test on domain just trained + old domains
-        evaluation = evaluate_past(model, index, test_set, loss, device)
-        accuracy.append(evaluation)
-        text.write(f"Evaluation after domain {index}" + '\n')
-        for a in evaluation:
-            text.write(f"{a:.2f}% ")
-        text.write('\n')
+        evaluation, error, mean_evaluation, mean_error = evaluate_past(model, index, test_set, loss, device)
+        print(f"Mean Error: {statistics.mean(error):.2f} | Mean Acc: {statistics.mean(evaluation):.2f}%")
+        accuracy.append(mean_evaluation)
+        text_file.write(f"---Evaluation after domain {index}--- \n")
+        for i, a in enumerate(mean_evaluation):
+            text_file.write(f"Domain {i} | Error: {mean_error[i]:.2f} | Acc: {a:.2f}%\n")
+        text_file.write(f"Mean Error: {statistics.mean(error):.2f} |"
+                        f" Mean Acc: {statistics.mean(evaluation):.2f}% \n")
 
         if index != len(train_set) - 1:
             accuracy[index].append(evaluate_next(model, index, test_set, loss, device))
+
+        torch.save(model.state_dict(), f'checkpoints/er/model_d{index}.pt')
 
     # Check buffer distribution
     buffer.check_distribution()
 
     # Compute transfer metrics
     backward = backward_transfer(accuracy)
-    forward = forward_transfer(accuracy, random_accuracy)
+    forward = forward_transfer(accuracy, random_mean_accuracy)
     forget = forgetting(accuracy)
-    print(f'Backward transfer: {backward}')  # todo Sono in %?
+    print(f'Backward transfer: {backward}')
     print(f'Forward transfer: {forward}')
     print(f'Forgetting: {forget}')
 
-    text.write(f"Backward: {backward}\n")
-    text.write(f"Forward: {forward}\n")
-    text.write(f"Forgetting: {forget}\n")
-    text.close()
+    text_file.write(f"Backward: {backward}\n")
+    text_file.write(f"Forward: {forward}\n")
+    text_file.write(f"Forgetting: {forget}\n")
+    text_file.close()
 
 
-def train_online(data, model, loss, optimizer, epochs, device, domain, global_writer):
+def train_online(train_set, test_set, model, loss, optimizer, device, config, suffix):
     """
-    :param data: data
+    :param train_set: Train set
+    :param test_set: Test set
     :param model: PyTorch model
     :param loss: loss function
     :param optimizer: optimizer
-    :param epochs: training epochs
     :param device: device cuda/cpu
-    :param domain: domain
-    :param global_writer: global SummaryWriter for tensorboard
+    :param config: configuration
+    :param suffix: Suffix for the filename and Summary Writer
     """
-    print("Training model...")
-    model.train()
 
-    # domain_writer = SummaryWriter(
-    #     f'./runs/online/train/domain_{domain}/' + datetime.datetime.now().strftime('%m_%d_%H_%M'))
+    text_file = open("result_" + suffix + ".txt", "a")
+    global_writer = SummaryWriter('./runs/online/train/global/' + suffix)
 
-    for i in tqdm(range(epochs)):
-        epoch_loss = []
-        epoch_acc = []
-        for j, (x, y) in enumerate(data):
-            optimizer.zero_grad()
+    # Eval without training
+    print("-----EVAL PRE-TRAINING-----")
+    text_file.write("ONLINE LEARNING \n")
+    text_file.write("---Eval pre-training--- \n")
+    random_accuracy, random_error, random_mean_accuracy, random_mean_error \
+        = evaluate_past(model, len(test_set) - 1, test_set, loss, device)
+    print(f"Mean Error: {statistics.mean(random_error):.2f} | Mean Acc: {statistics.mean(random_accuracy):.2f}%")
+    for i, a in enumerate(random_mean_accuracy):
+        text_file.write(f"Domain {i} | Error: {random_mean_error[i]:.2f} | Acc: {a:.2f}%\n")
+    text_file.write(f"Mean Error: {statistics.mean(random_error):.2f} |"
+                    f" Mean Acc: {statistics.mean(random_accuracy):.2f}% \n")
 
-            x = x.to(device)
-            y_pred = model(x)
-            y = y.to(device)
-            s_loss = loss(y_pred.squeeze(1), y)
-            acc = binary_accuracy(y_pred.squeeze(1), y)
+    for index, data_set in enumerate(train_set):
+        model.train()
+        print(f"----- DOMAIN {index} -----")
+        train_loader = DataLoader(data_set, batch_size=config["batch_size"], shuffle=False)
 
-            epoch_loss.append(s_loss.item())
-            epoch_acc.append(acc.item())
+        for i in tqdm(range(config['epochs'])):
+            epoch_loss = []
+            epoch_acc = []
+            for j, (x, y) in enumerate(train_loader):
+                optimizer.zero_grad()
 
-            s_loss.backward()
-            optimizer.step()
+                x = x.to(device)
+                y_pred = model(x)
+                y = y.to(device)
+                s_loss = loss(y_pred.squeeze(1), y)
+                acc = binary_accuracy(y_pred.squeeze(1), y)
 
-        global_writer.add_scalar('Train_global/Loss', statistics.mean(epoch_loss), i + (epochs * domain))
-        global_writer.add_scalar('Train_global/Accuracy', statistics.mean(epoch_acc), i + (epochs * domain))
+                epoch_loss.append(s_loss.item())
+                epoch_acc.append(acc.item())
 
-        # domain_writer.add_scalar(f'Train_D{domain}/Loss', statistics.mean(epoch_loss), i)
-        # domain_writer.add_scalar(f'Train_D{domain}/Accuracy', statistics.mean(epoch_acc), i)
+                s_loss.backward()
+                optimizer.step()
 
-        if i % 100 == 0:
-            print(f'\nEpoch {i:03}/{epochs} | Loss: {statistics.mean(epoch_loss):.5f} '
-                  f'| Acc: {statistics.mean(epoch_acc):.5f}')
-        # Last epoch (only for stats)
-        if i == 499:
-            print(f'\nEpoch {i:03}/{epochs} | Loss: {statistics.mean(epoch_loss):.5f}'
-                  f'| Acc: {statistics.mean(epoch_acc):.5f}')
+            global_writer.add_scalar('Train_global/Loss',
+                                     statistics.mean(epoch_loss), i + (config['epochs'] * index))
+            global_writer.add_scalar('Train_global/Acc',
+                                     statistics.mean(epoch_acc), i + (config['epochs'] * index))
 
-    torch.save(model.state_dict(), f'checkpoints/online/model_d{domain}.pt')
+            if i % 100 == 0:
+                print(f'\nEpoch {i:03}/{config["epochs"]} | Loss: {statistics.mean(epoch_loss):.2f} '
+                      f'| Acc: {statistics.mean(epoch_acc):.2f}%')
+
+            # Last epoch (only for stats)
+            if i == 499:
+                print(f'\nEpoch {i:03}/{config["epochs"]} | Loss: {statistics.mean(epoch_loss):.2f} '
+                      f'| Acc: {statistics.mean(epoch_acc):.2f}% \n')
+
+        # Test on domain just trained + old domains
+        evaluation, error, mean_evaluation, mean_error = evaluate_past(model, index, test_set, loss, device)
+        print(f"Mean Error: {statistics.mean(error):.2f} | Mean Acc: {statistics.mean(evaluation):.2f}%")
+        text_file.write(f"---Evaluation after domain {index}--- \n")
+        for i, a in enumerate(mean_evaluation):
+            text_file.write(f"Domain {i} | Error: {mean_error[i]:.2f} | Acc: {a:.2f}%\n")
+        text_file.write(f"Mean Error: {statistics.mean(error):.2f} | "
+                        f"Mean Acc: {statistics.mean(evaluation):.2f}% \n")
+
+        torch.save(model.state_dict(), f'checkpoints/online/model_d{index}.pt')
+
+    text_file.close()
