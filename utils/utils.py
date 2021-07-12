@@ -1,5 +1,6 @@
 import statistics
 import numpy as np
+import pandas as pd
 import torch
 import matplotlib.pyplot as plt
 import talib
@@ -17,11 +18,11 @@ def indicators(data):
     :param data: data
     :return: np array of each indicator
     """
-    cmo = talib.CMO(np.array(data), timeperiod=10).reshape(-1, 1)
+    cmo = talib.CMO(np.array(data), timeperiod=10).reshape(-1, 1) #
     roc = talib.ROC(np.array(data), timeperiod=5).reshape(-1, 1)
     rsi = talib.RSI(np.array(data), timeperiod=5).reshape(-1, 1)
     wma = talib.WMA(np.array(data), timeperiod=20).reshape(-1, 1)
-    ppo = talib.PPO(np.array(data), fastperiod=10, slowperiod=20, matype=0).reshape(-1, 1)
+    ppo = talib.PPO(np.array(data), fastperiod=5, slowperiod=10, matype=0).reshape(-1, 1)
     return cmo, roc, rsi, wma, ppo
 
 
@@ -70,6 +71,7 @@ def split_with_indicators(data, chps, n_step):
             seq_ppo = subppo[i:end_seq]
             domain = index
             input = np.concatenate((seq_x, seq_cmo, seq_roc, seq_rsi, seq_wma, seq_ppo), axis=0)
+            # input = input.squeeze()
             input = np.append(input, domain)
 
             label = 0.  # Target value lower or equal than input sequence
@@ -130,20 +132,18 @@ def read_csv(filename):
     """
     path = Path.cwd()
     csv_path = path.joinpath('dataset', filename)
-    lines = [x.strip() for x in open(csv_path, 'r').readlines()][1:]
-    value_list = lines[0].split(',')
-    value_list.pop(0)
-    value_list = [float(i) for i in value_list]
+    df = pd.read_csv(csv_path)
+    value_list = df.iloc[:, 1].to_list()
     return value_list
 
 
 def check_changepoints(filename):
     path = Path.cwd()
     file_path = path.joinpath('chp_list.txt')
-    lines = [x.strip() for x in open(file_path, 'r').readlines()]
+    rows = [x.strip() for x in open(file_path, 'r').readlines()]
     chps = np.zeros(1)
-    for l in lines:
-        tmp = l.split(',')
+    for r in rows:
+        tmp = r.split(',')
         if tmp[0] == filename:
             value_list = tmp[1:]
             chps = np.array(value_list, dtype=np.int)
@@ -172,10 +172,16 @@ def eval_bayesian(chps, raw_data):
     """
     plt.figure(figsize=(10, 6))
     plt.plot(raw_data)
+    plt.xlabel("Timestep")
+    plt.ylabel("Price")
+    plt.grid(True)
     for i in chps:
         plt.axvline(i, color="red")
     plt.title("Bayesian Online")
+    plt.xlabel("Timestep")
+    plt.ylabel("Price")
     plt.show()
+
 
     # Evaluation of train/test split
     splits = np.split(raw_data, chps)

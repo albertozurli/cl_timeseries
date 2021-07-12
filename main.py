@@ -24,7 +24,7 @@ parser.add_argument('--epochs', type=int, default=500,
                     help="Number of train epochs (default: 500)")
 parser.add_argument('--lr', type=float, default=0.0001,
                     help="Learning rate (default: 0.0001)")
-parser.add_argument('--filename', type=str, help="CSV file")
+parser.add_argument('--dataset', type=str, help="CSV file")
 parser.add_argument('--buffer_size', type=int, default=500,
                     help="Size of the buffer for ER (default: 500")
 parser.add_argument('--regression', action='store_true',
@@ -39,13 +39,15 @@ parser.add_argument('--split', action='store_true',
                     help="Show domain split")
 parser.add_argument('--suffix', type=str, default="",
                     help="Suffix name")
+parser.add_argument('--evaluate', action='store_true',
+                    help="Test prevoius + current domain each epoch")
 
 
 def main(config):
-    raw_data = read_csv(config["filename"])
+    raw_data = read_csv(config["dataset"])
 
     # Check if chps are already saved
-    saved, chps = check_changepoints(config["filename"])
+    saved, chps = check_changepoints(config["dataset"])
 
     # Online changepoint
     if not saved:
@@ -58,7 +60,7 @@ def main(config):
         eval_bayesian(chps, raw_data)
 
     # Type of dataset (yearly,quarterly...)
-    n_step = timeperiod(config['filename'])
+    n_step = timeperiod(config['dataset'])
 
     # Split in N train/test set (data + feature)
     if config['processing'] == 'indicators':
@@ -76,6 +78,7 @@ def main(config):
     print(torch.cuda.get_device_name(0))
 
     # Setup the model
+
     input_size = train_data[0][0][0].size()[0]
     if config["regression"]:
         model = RegressionMLP(input_size=input_size)
@@ -94,7 +97,7 @@ def main(config):
     print(model)
 
     if not config['suffix']:
-        suffix = config['filename'].partition('-')[0]
+        suffix = config['dataset'].partition('-')[0]
     else:
         suffix = config['suffix']
 
