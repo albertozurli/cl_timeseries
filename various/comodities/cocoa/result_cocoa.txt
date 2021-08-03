@@ -1,0 +1,58 @@
+ONLINE LEARNING 
+---Eval pre-training--- 
+Domain 0 | Error: 16.59 | Acc: 48.58%
+Domain 1 | Error: 33.21 | Acc: 52.19%
+Domain 2 | Error: 24.58 | Acc: 55.43%
+Mean Error: 25.94 | Mean Acc: 51.70% 
+---Evaluation after domain 0--- 
+Domain 0 | Error: 0.69 | Acc: 48.58%
+Mean Error: 0.69 | Mean Acc: 48.58% 
+---Evaluation after domain 1--- 
+Domain 0 | Error: 0.69 | Acc: 51.42%
+Domain 1 | Error: 0.70 | Acc: 47.81%
+Mean Error: 0.70 | Mean Acc: 49.31% 
+---Evaluation after domain 2--- 
+Domain 0 | Error: 0.69 | Acc: 51.42%
+Domain 1 | Error: 0.70 | Acc: 47.81%
+Domain 2 | Error: 0.70 | Acc: 44.57%
+Mean Error: 0.70 | Mean Acc: 48.30% 
+ONLINE LEARNING 
+---Eval pre-training--- 
+Domain 0 | Error: 20.84 | Acc: 48.58%
+Domain 1 | Error: 42.34 | Acc: 52.19%
+Domain 2 | Error: 29.61 | Acc: 55.43%
+Mean Error: 32.60 | Mean Acc: 51.70% 
+---Evaluation after domain 0--- 
+Domain 0 | Error: 0.70 | Acc: 48.58%
+Mean Error: 0.70 | Mean Acc: 48.58% 
+---Evaluation after domain 1--- 
+Domain 0 | Error: 0.69 | Acc: 51.42%
+Domain 1 | Error: 0.69 | Acc: 47.81%
+Mean Error: 0.69 | Mean Acc: 49.31% 
+---Evaluation after domain 2--- 
+Domain 0 | Error: 0.69 | Acc: 51.42%
+Domain 1 | Error: 0.69 | Acc: 47.81%
+Domain 2 | Error: 0.70 | Acc: 44.93%
+Mean Error: 0.69 | Mean Acc: 48.37% 
+
+CONTINUAL LEARNING W\ ER 
+---Eval pre-training--- 
+Domain 0 | Error: 20.84 | Acc: 48.58%
+Domain 1 | Error: 42.34 | Acc: 52.19%
+Domain 2 | Error: 29.61 | Acc: 55.43%
+Mean Error: 32.60 | Mean Acc: 51.70% 
+---Evaluation after domain 0--- 
+Domain 0 | Error: 0.70 | Acc: 48.58%
+Mean Error: 0.70 | Mean Acc: 48.58% 
+---Evaluation after domain 1--- 
+Domain 0 | Error: 0.69 | Acc: 51.42%
+Domain 1 | Error: 0.69 | Acc: 47.81%
+Mean Error: 0.69 | Mean Acc: 49.31% 
+---Evaluation after domain 2--- 
+Domain 0 | Error: 0.69 | Acc: 51.42%
+Domain 1 | Error: 0.69 | Acc: 47.81%
+Domain 2 | Error: 0.70 | Acc: 45.29%
+Mean Error: 0.70 | Mean Acc: 48.45% 
+Backward: 1.4218009478672968
+Forward: -4.891304347826086
+Forgetting: 2.188552188552187

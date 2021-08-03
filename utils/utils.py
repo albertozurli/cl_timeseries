@@ -18,7 +18,7 @@ def indicators(data):
     :param data: data
     :return: np array of each indicator
     """
-    cmo = talib.CMO(np.array(data), timeperiod=10).reshape(-1, 1) #
+    cmo = talib.CMO(np.array(data), timeperiod=10).reshape(-1, 1)
     roc = talib.ROC(np.array(data), timeperiod=5).reshape(-1, 1)
     rsi = talib.RSI(np.array(data), timeperiod=5).reshape(-1, 1)
     wma = talib.WMA(np.array(data), timeperiod=20).reshape(-1, 1)

@@ -1,4 +1,5 @@
 import torch.nn as nn
+import torch
 
 
 class RegressionMLP(nn.Module):
@@ -38,3 +39,15 @@ class ClassficationMLP(nn.Module):
     def forward(self, x):
         x = self.net(x)
         return x
+
+    def get_params(self):
+        params = []
+        for pp in list(self.parameters()):
+            params.append(pp.view(-1))
+        return torch.cat(params)
+
+    def get_grads(self):
+        grads = []
+        for pp in list(self.parameters()):
+            grads.append(pp.grad.view(-1))
+        return torch.cat(grads)

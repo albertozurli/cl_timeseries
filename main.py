@@ -5,7 +5,7 @@ import torch
 
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 from utils.models import RegressionMLP, ClassficationMLP
-from utils.training import train_er, train_online
+from utils.training import train_er, train_online, train_ewc,train_si
 from utils.utils import read_csv, split_data, split_with_indicators, compute_diff, eval_bayesian, check_changepoints, \
     timeperiod
 
@@ -24,6 +24,14 @@ parser.add_argument('--epochs', type=int, default=500,
                     help="Number of train epochs (default: 500)")
 parser.add_argument('--lr', type=float, default=0.0001,
                     help="Learning rate (default: 0.0001)")
+parser.add_argument('--gamma', type=float, default=1.,
+                    help="gamma value for EWC")
+parser.add_argument('--e_lambda', type=float, default=17.5,
+                    help="lambda value for EWC")
+parser.add_argument('--xi', type=float, default=0.9,
+                    help="xi value for SI")
+parser.add_argument('--c', type=float, default=0.1,
+                    help="c value for SI")
 parser.add_argument('--dataset', type=str, help="CSV file")
 parser.add_argument('--buffer_size', type=int, default=500,
                     help="Size of the buffer for ER (default: 500")
@@ -33,6 +41,10 @@ parser.add_argument('--online', action='store_true',
                     help="Online Learning")
 parser.add_argument('--er', action='store_true',
                     help="Continual Learning with ER")
+parser.add_argument('--ewc', action='store_true',
+                    help="Continual Learning with EWC")
+parser.add_argument('--si', action='store_true',
+                    help="Continual Learning with SI")
 parser.add_argument('--processing', default='none', choices=['none', 'difference', 'indicators'],
                     help="Type of pre-processing")
 parser.add_argument('--split', action='store_true',
@@ -115,6 +127,22 @@ def main(config):
         optimizer.load_state_dict(initial_model['optimizer_state_dict'])
         train_er(train_set=train_data, test_set=test_data, model=model, loss=loss,
                  optimizer=optimizer, device=device, config=config, suffix=suffix)
+
+    # Continual learning with EWC
+    if config['ewc']:
+        initial_model = torch.load('checkpoints/model_scratch.pt')
+        model.load_state_dict(initial_model['model_state_dict'])
+        optimizer.load_state_dict(initial_model['optimizer_state_dict'])
+        train_ewc(train_set=train_data, test_set=test_data, model=model, loss=loss,
+                  optimizer=optimizer, device=device, config=config, suffix=suffix)
+
+    # Continual learning with SI
+    if config['si']:
+        initial_model = torch.load('checkpoints/model_scratch.pt')
+        model.load_state_dict(initial_model['model_state_dict'])
+        optimizer.load_state_dict(initial_model['optimizer_state_dict'])
+        train_si(train_set=train_data, test_set=test_data, model=model, loss=loss,
+                  optimizer=optimizer, device=device, config=config, suffix=suffix)
 
 
 if __name__ == "__main__":

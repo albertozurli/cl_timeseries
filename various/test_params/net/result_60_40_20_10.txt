@@ -1,0 +1,15 @@
+Evaluation before training
+49.84% 53.41% 36.80% 54.44% 51.74% 
+Evaluation after domain 0
+61.06% 
+Evaluation after domain 1
+58.65% 55.49% 
+Evaluation after domain 2
+58.65% 47.48% 85.06% 
+Evaluation after domain 3
+59.13% 50.45% 76.84% 48.22% 
+Evaluation after domain 4
+58.81% 51.34% 78.79% 55.92% 59.30% 
+Backward: -1.2456602497403733
+Forward: 7.887987453138635
+Forgetting: 8.864003445006645

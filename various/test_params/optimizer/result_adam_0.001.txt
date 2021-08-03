@@ -1,0 +1,37 @@
+
+CONTINUAL LEARNING W\ ER 
+---Eval pre-training--- 
+Domain 0 | Error: 1.65 | Acc: 50.32%
+Domain 1 | Error: 2.12 | Acc: 46.59%
+Domain 2 | Error: 2.32 | Acc: 63.20%
+Domain 3 | Error: 3.60 | Acc: 45.56%
+Domain 4 | Error: 2.55 | Acc: 48.55%
+Mean Error: 2.33 | Mean Acc: 51.50% 
+---Evaluation after domain 0--- 
+Domain 0 | Error: 2.13 | Acc: 62.18%
+Mean Error: 2.13 | Mean Acc: 62.18% 
+---Evaluation after domain 1--- 
+Domain 0 | Error: 1.30 | Acc: 59.78%
+Domain 1 | Error: 2.92 | Acc: 56.68%
+Mean Error: 1.87 | Mean Acc: 58.69% 
+---Evaluation after domain 2--- 
+Domain 0 | Error: 9.41 | Acc: 53.85%
+Domain 1 | Error: 1.99 | Acc: 49.26%
+Domain 2 | Error: 0.63 | Acc: 83.33%
+Mean Error: 4.80 | Mean Acc: 62.33% 
+---Evaluation after domain 3--- 
+Domain 0 | Error: 9.57 | Acc: 55.13%
+Domain 1 | Error: 1.61 | Acc: 50.45%
+Domain 2 | Error: 0.63 | Acc: 84.63%
+Domain 3 | Error: 0.65 | Acc: 47.63%
+Mean Error: 3.99 | Mean Acc: 60.53% 
+---Evaluation after domain 4--- 
+Domain 0 | Error: 10.91 | Acc: 60.74%
+Domain 1 | Error: 2.12 | Acc: 59.64%
+Domain 2 | Error: 0.72 | Acc: 64.29%
+Domain 3 | Error: 0.66 | Acc: 65.68%
+Domain 4 | Error: 1.13 | Acc: 65.70%
+Mean Error: 4.02 | Mean Acc: 62.95% 
+Backward: 0.13119239715622122
+Forward: -1.9740862646339767
+Forgetting: 5.447157009657008

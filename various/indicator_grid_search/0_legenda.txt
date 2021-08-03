@@ -1,0 +1,26 @@
+To reproduce the plots on tensorboard move the files in runs repo and follow the repo tree
+
+CMO
+5  --> Orange
+10 --> Blue
+20 --> Red
+
+ROC
+5  --> Cyan
+10 --> Magenta
+20 --> Green
+
+RSI
+5  --> Orange
+10 --> Blue
+20 --> Red
+
+WMA
+5  --> Cyan
+10 --> Magenta
+20 --> Green
+
+PPO
+5/10  --> Grey
+10/20 --> Orange
+20/40 --> Blue

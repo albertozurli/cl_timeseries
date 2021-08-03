@@ -1,0 +1,12 @@
+Evaluation before training
+48.88% 52.82% 35.50% 54.44% 52.62% 
+Evaluation after domain 0
+61.22% 
+Evaluation after domain 1
+59.94% 52.82% 
+Evaluation after domain 2
+58.97% 50.74% 80.52% 
+Evaluation after domain 3
+60.74% 49.55% 84.85% 71.60% 
+Evaluation after domain 4
+60.90% 54.01% 85.28% 78.11% 60.76% 

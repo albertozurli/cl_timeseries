@@ -42,14 +42,26 @@ Online training and testing:
 python ./main.py --online 
 ```
 
-## Continual learning with ER:
+## Continual learning with ER (Replay):
 
 Continual training and testing:
 ```
 python ./main.py --er
 ```
+## Continual learning with EWC(Regularization):
+
+Continual training and testing:
+```
+python ./main.py --ewc
+```
+## Continual learning with SI(Regularization):
+
+Continual training and testing:
+```
+python ./main.py --si
+```
 
 ### TO DO:
-* Test with different sequence timestep (actually 4 weeks of observation and prediction 4 weeks later)
-* Implement regularization (EWC,LwF) and architectural (PNN) methods, if possible in Domain-IL scenario
-* Save results(loss, accuracy) in a file, actually in a .txt but in the future .csv is better 
+* Classification on % of outscore/outperform and not on price
+* Test with different sequence timestep (actually 30 days of observation and prediction 30 days later)
+* Implement LwF,DER,MER and AD, if possible in Domain-IL scenario
