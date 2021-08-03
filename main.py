@@ -5,7 +5,7 @@ import torch
 
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 from utils.models import RegressionMLP, ClassficationMLP
-from utils.training import train_er, train_online, train_ewc,train_si
+from utils.training import train_er, train_online, train_ewc, train_si
 from utils.utils import read_csv, split_data, split_with_indicators, compute_diff, eval_bayesian, check_changepoints, \
     timeperiod
 
@@ -52,7 +52,7 @@ parser.add_argument('--split', action='store_true',
 parser.add_argument('--suffix', type=str, default="",
                     help="Suffix name")
 parser.add_argument('--evaluate', action='store_true',
-                    help="Test prevoius + current domain each epoch")
+                    help="Test previous + current domain each epoch")
 
 
 def main(config):
@@ -142,7 +142,7 @@ def main(config):
         model.load_state_dict(initial_model['model_state_dict'])
         optimizer.load_state_dict(initial_model['optimizer_state_dict'])
         train_si(train_set=train_data, test_set=test_data, model=model, loss=loss,
-                  optimizer=optimizer, device=device, config=config, suffix=suffix)
+                 optimizer=optimizer, device=device, config=config, suffix=suffix)
 
 
 if __name__ == "__main__":

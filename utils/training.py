@@ -151,7 +151,7 @@ def train_er(train_set, test_set, model, loss, optimizer, device, config, suffix
                 y_pred = model(inputs)
                 s_loss = loss(y_pred.squeeze(1), labels)
                 acc = binary_accuracy(y_pred.squeeze(1), labels)
-                # METRICHE INTERNE EPOCA
+
                 epoch_loss.append(s_loss.item())
                 epoch_acc.append(acc.item())
 
