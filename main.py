@@ -4,8 +4,8 @@ import warnings
 import torch
 
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
-from utils.models import RegressionMLP, ClassficationMLP
-from utils.training import train_er, train_online, train_ewc, train_si
+from utils.models import RegressionMLP, ClassficationMLP,DarkERMLP
+from utils.training import train_er, train_online, train_ewc, train_si,train_dark_er
 from utils.utils import read_csv, split_data, split_with_indicators, compute_diff, eval_bayesian, check_changepoints, \
     timeperiod
 
@@ -41,6 +41,8 @@ parser.add_argument('--online', action='store_true',
                     help="Online Learning")
 parser.add_argument('--er', action='store_true',
                     help="Continual Learning with ER")
+parser.add_argument('--der', action='store_true',
+                    help="Continual Learning with Dark ER")
 parser.add_argument('--ewc', action='store_true',
                     help="Continual Learning with EWC")
 parser.add_argument('--si', action='store_true',
@@ -53,6 +55,8 @@ parser.add_argument('--suffix', type=str, default="",
                     help="Suffix name")
 parser.add_argument('--evaluate', action='store_true',
                     help="Test previous + current domain each epoch")
+parser.add_argument('--alpha', type=float, default=0.1,
+                    help="penalty weight for DER")
 
 
 def main(config):
@@ -142,6 +146,17 @@ def main(config):
         model.load_state_dict(initial_model['model_state_dict'])
         optimizer.load_state_dict(initial_model['optimizer_state_dict'])
         train_si(train_set=train_data, test_set=test_data, model=model, loss=loss,
+                 optimizer=optimizer, device=device, config=config, suffix=suffix)
+
+    if config['der']:
+        model = DarkERMLP(input_size=input_size)
+        model = model.to(device)
+        loss = nn.BCELoss()
+        optimizer = torch.optim.SGD(model.parameters(), lr=config["lr"])
+        initial_model = torch.load('checkpoints/model_scratch.pt')
+        model.load_state_dict(initial_model['model_state_dict'])
+        optimizer.load_state_dict(initial_model['optimizer_state_dict'])
+        train_dark_er(train_set=train_data, test_set=test_data, model=model, loss=loss,
                  optimizer=optimizer, device=device, config=config, suffix=suffix)
 
 
