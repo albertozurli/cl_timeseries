@@ -48,6 +48,12 @@ Continual training and testing:
 ```
 python ./main.py --er
 ```
+## Continual learning with Dark ER (Replay):
+
+Continual training and testing:
+```
+python ./main.py --er
+```
 ## Continual learning with EWC(Regularization):
 
 Continual training and testing:
@@ -64,4 +70,4 @@ python ./main.py --si
 ### TO DO:
 * Classification on % of outscore/outperform and not on price
 * Test with different sequence timestep (actually 30 days of observation and prediction 30 days later)
-* Implement LwF,DER,MER and AD, if possible in Domain-IL scenario
+* Implement MER, GEM, 

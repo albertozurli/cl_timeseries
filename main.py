@@ -4,8 +4,8 @@ import warnings
 import torch
 
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
-from utils.models import RegressionMLP, ClassficationMLP,DarkERMLP
-from utils.training import train_er, train_online, train_ewc, train_si,train_dark_er
+from utils.models import RegressionMLP, ClassficationMLP
+from utils.training import train_er, train_online, train_ewc, train_si, train_dark_er
 from utils.utils import read_csv, split_data, split_with_indicators, compute_diff, eval_bayesian, check_changepoints, \
     timeperiod
 
@@ -17,26 +17,26 @@ warnings.simplefilter('ignore', category=NumbaDeprecationWarning)
 warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
 os.environ["KMP_DUPLICATE_LIB_OK"] = 'True'
 
+# General Paramteres
 parser = argparse.ArgumentParser(description='Thesis')
 parser.add_argument('--batch_size', type=int, default=64,
-                    help="Batch size dimension (default: 64)")
+                    help="Batch size dimension")
 parser.add_argument('--epochs', type=int, default=500,
-                    help="Number of train epochs (default: 500)")
+                    help="Number of train epochs")
 parser.add_argument('--lr', type=float, default=0.0001,
-                    help="Learning rate (default: 0.0001)")
-parser.add_argument('--gamma', type=float, default=1.,
-                    help="gamma value for EWC")
-parser.add_argument('--e_lambda', type=float, default=17.5,
-                    help="lambda value for EWC")
-parser.add_argument('--xi', type=float, default=0.9,
-                    help="xi value for SI")
-parser.add_argument('--c', type=float, default=0.1,
-                    help="c value for SI")
+                    help="Learning rate")
 parser.add_argument('--dataset', type=str, help="CSV file")
-parser.add_argument('--buffer_size', type=int, default=500,
-                    help="Size of the buffer for ER (default: 500")
 parser.add_argument('--regression', action='store_true',
                     help="Regression task")
+parser.add_argument('--processing', default='none', choices=['none', 'difference', 'indicators'],
+                    help="Type of pre-processing")
+parser.add_argument('--split', action='store_true',
+                    help="Show domain split")
+parser.add_argument('--suffix', type=str, default="",
+                    help="Suffix name")
+parser.add_argument('--evaluate', action='store_true',
+                    help="Test previous + current domain each epoch")
+# Methods
 parser.add_argument('--online', action='store_true',
                     help="Online Learning")
 parser.add_argument('--er', action='store_true',
@@ -47,14 +47,19 @@ parser.add_argument('--ewc', action='store_true',
                     help="Continual Learning with EWC")
 parser.add_argument('--si', action='store_true',
                     help="Continual Learning with SI")
-parser.add_argument('--processing', default='none', choices=['none', 'difference', 'indicators'],
-                    help="Type of pre-processing")
-parser.add_argument('--split', action='store_true',
-                    help="Show domain split")
-parser.add_argument('--suffix', type=str, default="",
-                    help="Suffix name")
-parser.add_argument('--evaluate', action='store_true',
-                    help="Test previous + current domain each epoch")
+# EWC Parameters
+parser.add_argument('--gamma', type=float, default=1.,
+                    help="gamma value for EWC")
+parser.add_argument('--e_lambda', type=float, default=17.5,
+                    help="lambda value for EWC")
+# SI Parameters
+parser.add_argument('--xi', type=float, default=0.9,
+                    help="xi value for SI")
+parser.add_argument('--c', type=float, default=0.1,
+                    help="c value for SI")
+# ER/DER Parameters
+parser.add_argument('--buffer_size', type=int, default=500,
+                    help="Size of the buffer for ER/DER")
 parser.add_argument('--alpha', type=float, default=0.1,
                     help="penalty weight for DER")
 
@@ -104,7 +109,7 @@ def main(config):
     else:
         model = ClassficationMLP(input_size=input_size)
         model = model.to(device)
-        loss = nn.BCELoss()
+        loss = nn.CrossEntropyLoss()
         optimizer = torch.optim.SGD(model.parameters(), lr=config["lr"])
         torch.save({'model_state_dict': model.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
@@ -124,6 +129,7 @@ def main(config):
         optimizer.load_state_dict(initial_model['optimizer_state_dict'])
         train_online(train_set=train_data, test_set=test_data, model=model, loss=loss,
                      optimizer=optimizer, config=config, device=device, suffix=suffix)
+
     # Continual learning with ER
     if config['er']:
         initial_model = torch.load('checkpoints/model_scratch.pt')
@@ -131,6 +137,14 @@ def main(config):
         optimizer.load_state_dict(initial_model['optimizer_state_dict'])
         train_er(train_set=train_data, test_set=test_data, model=model, loss=loss,
                  optimizer=optimizer, device=device, config=config, suffix=suffix)
+
+    # Continual learning with ER
+    if config['der']:
+        initial_model = torch.load('checkpoints/model_scratch.pt')
+        model.load_state_dict(initial_model['model_state_dict'])
+        optimizer.load_state_dict(initial_model['optimizer_state_dict'])
+        train_dark_er(train_set=train_data, test_set=test_data, model=model, loss=loss,
+                      optimizer=optimizer, device=device, config=config, suffix=suffix)
 
     # Continual learning with EWC
     if config['ewc']:
@@ -146,17 +160,6 @@ def main(config):
         model.load_state_dict(initial_model['model_state_dict'])
         optimizer.load_state_dict(initial_model['optimizer_state_dict'])
         train_si(train_set=train_data, test_set=test_data, model=model, loss=loss,
-                 optimizer=optimizer, device=device, config=config, suffix=suffix)
-
-    if config['der']:
-        model = DarkERMLP(input_size=input_size)
-        model = model.to(device)
-        loss = nn.BCELoss()
-        optimizer = torch.optim.SGD(model.parameters(), lr=config["lr"])
-        initial_model = torch.load('checkpoints/model_scratch.pt')
-        model.load_state_dict(initial_model['model_state_dict'])
-        optimizer.load_state_dict(initial_model['optimizer_state_dict'])
-        train_dark_er(train_set=train_data, test_set=test_data, model=model, loss=loss,
                  optimizer=optimizer, device=device, config=config, suffix=suffix)
 
 

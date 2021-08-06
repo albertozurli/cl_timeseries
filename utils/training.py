@@ -29,8 +29,9 @@ def test_epoch(model, test_loader, device):
             x = x.to(device)
             y = y.to(device)
 
-            pred = model(x)
-            acc = binary_accuracy(pred.squeeze(1), y)
+            output = model(x)
+            _, pred = torch.max(output.data, 1)
+            acc = binary_accuracy(pred.float(), y)
             test_acc.append(acc.item())
 
     return test_acc
@@ -52,9 +53,10 @@ def test(model, loss, test_loader, device):
             x = x.to(device)
             y = y.to(device)
 
-            pred = model(x)
-            s_loss = loss(pred.squeeze(1), y)
-            acc = binary_accuracy(pred.squeeze(1), y)
+            output = model(x)
+            _, pred = torch.max(output.data, 1)
+            s_loss = loss(output, y.long())
+            acc = binary_accuracy(pred.float(), y)
             test_acc.append(acc.item())
             test_loss.append(s_loss.item())
 
@@ -143,18 +145,20 @@ def train_dark_er(train_set, test_set, model, loss, optimizer, device, config, s
 
                 inputs = x.to(device)
                 labels = y.to(device)
+                output = model(inputs)
 
-                y_pred = model(inputs)
-                s_loss = loss(y_pred.squeeze(1), labels)
+                _, pred = torch.max(output.data, 1)
+                s_loss = loss(output, labels.long())
 
                 if not buffer.is_empty():
                     # Strategy 50/50
                     # From batch of 64 (dataloader) to 64 + 64 (dataloader + replay)
-                    buf_input, buf_logit= buffer.get_data(config['batch_size'])
-                    buf_output = model(buf_input)
-                    s_loss += config['alpha'] * F.mse_loss(buf_output,buf_logit)
+                    buf_input, buf_logit = buffer.get_data(config['batch_size'])
+                    buf_output = model(torch.stack(buf_input))
+                    add_loss = F.mse_loss(buf_output, torch.stack(buf_logit))
+                    s_loss += config['alpha'] * add_loss.data
 
-                acc = binary_accuracy(y_pred.squeeze(1), labels)
+                acc = binary_accuracy(pred.float(), labels)
 
                 epoch_loss.append(s_loss.item())
                 epoch_acc.append(acc.item())
@@ -163,7 +167,7 @@ def train_dark_er(train_set, test_set, model, loss, optimizer, device, config, s
                 optimizer.step()
 
                 if epoch == 0:
-                    buffer.add_data(examples=x.to(device), labels=y_pred.data.to(device))
+                    buffer.add_data(examples=x.to(device), labels=output.to(device))
 
             global_writer.add_scalar('Train_global/Loss', statistics.mean(epoch_loss),
                                      epoch + (config['epochs'] * index))
@@ -215,12 +219,12 @@ def train_dark_er(train_set, test_set, model, loss, optimizer, device, config, s
     print(f'Forward transfer: {forward}')
     print(f'Forgetting: {forget}')
 
-    text_file.write(f"Backward: {backward}\n")
-    text_file.write(f"Forward: {forward}\n")
-    text_file.write(f"Forgetting: {forget}\n")
-    text_file.close()
-
     if config['evaluate']:
+        text_file.write(f"Backward: {backward}\n")
+        text_file.write(f"Forward: {forward}\n")
+        text_file.write(f"Forgetting: {forget}\n")
+        text_file.close()
+
         df = pd.DataFrame(test_list)
         df.to_csv(f'{suffix}_der.csv')
 
@@ -286,9 +290,11 @@ def train_er(train_set, test_set, model, loss, optimizer, device, config, suffix
                     buf_input, buf_label = buffer.get_data(config['batch_size'])
                     inputs = torch.cat((inputs, torch.stack(buf_input)))
                     labels = torch.cat((labels, torch.stack(buf_label)))
-                y_pred = model(inputs)
-                s_loss = loss(y_pred.squeeze(1), labels)
-                acc = binary_accuracy(y_pred.squeeze(1), labels)
+
+                output = model(inputs)
+                _, pred = torch.max(output.data, 1)
+                s_loss = loss(output, labels.long())
+                acc = binary_accuracy(pred.float(), labels)
 
                 epoch_loss.append(s_loss.item())
                 epoch_acc.append(acc.item())
@@ -349,12 +355,12 @@ def train_er(train_set, test_set, model, loss, optimizer, device, config, suffix
     print(f'Forward transfer: {forward}')
     print(f'Forgetting: {forget}')
 
-    text_file.write(f"Backward: {backward}\n")
-    text_file.write(f"Forward: {forward}\n")
-    text_file.write(f"Forgetting: {forget}\n")
-    text_file.close()
-
     if config['evaluate']:
+        text_file.write(f"Backward: {backward}\n")
+        text_file.write(f"Forward: {forward}\n")
+        text_file.write(f"Forgetting: {forget}\n")
+        text_file.close()
+
         df = pd.DataFrame(test_list)
         df.to_csv(f'{suffix}_er.csv')
 
@@ -412,10 +418,11 @@ def train_online(train_set, test_set, model, loss, optimizer, device, config, su
                 optimizer.zero_grad()
 
                 x = x.to(device)
-                y_pred = model(x)
+                output = model(x)
                 y = y.to(device)
-                s_loss = loss(y_pred.squeeze(1), y)
-                acc = binary_accuracy(y_pred.squeeze(1), y)
+                s_loss = loss(output, y.long())
+                _, pred = torch.max(output.data, 1)
+                acc = binary_accuracy(pred.float(), y)
 
                 epoch_loss.append(s_loss.item())
                 epoch_acc.append(acc.item())
@@ -457,9 +464,9 @@ def train_online(train_set, test_set, model, loss, optimizer, device, config, su
 
         torch.save(model.state_dict(), f'checkpoints/online/model_d{index}.pt')
 
-    text_file.close()
-
     if config['evaluate']:
+        text_file.close()
+
         df = pd.DataFrame(test_list)
         df.to_csv(f'{suffix}_online.csv')
 
@@ -508,14 +515,15 @@ def train_ewc(model, loss, device, optimizer, train_set, test_set, suffix, confi
                 optimizer.zero_grad()
 
                 x = x.to(device)
-                y_pred = model(x)
+                output = model(x)
                 y = y.to(device)
 
                 penalty = ewc.penalty()
-                s_loss = loss(y_pred.squeeze(1), y) + (config['e_lambda'] * penalty)
+                s_loss = loss(output, y.long()) + (config['e_lambda'] * penalty)
                 assert not torch.isnan(s_loss)
 
-                acc = binary_accuracy(y_pred.squeeze(1), y)
+                _, pred = torch.max(output.data, 1)
+                acc = binary_accuracy(pred.float(), y)
                 epoch_loss.append(s_loss.item())
                 epoch_acc.append(acc.item())
 
@@ -625,13 +633,14 @@ def train_si(model, loss, device, optimizer, train_set, test_set, suffix, config
                 optimizer.zero_grad()
 
                 x = x.to(device)
-                y_pred = model(x)
+                output = model(x)
                 y = y.to(device)
 
                 penalty = si.penalty()
-                s_loss = loss(y_pred.squeeze(1), y) + config['c'] * penalty
+                s_loss = loss(output, y.long()) + config['c'] * penalty
 
-                acc = binary_accuracy(y_pred.squeeze(1), y)
+                _, pred = torch.max(output.data, 1)
+                acc = binary_accuracy(pred.float(), y)
                 epoch_loss.append(s_loss.item())
                 epoch_acc.append(acc.item())
 
