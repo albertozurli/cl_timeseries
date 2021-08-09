@@ -37,8 +37,9 @@ def timeperiod(filename):
         return 0
 
 
-def split_with_indicators(data, chps, n_step):
+def split_with_indicators(config, data, chps, n_step):
     """
+    :param config: config
     :param data: data
     :param chps: list of changepoint detected
     :param n_step: size of a sequence
@@ -70,18 +71,20 @@ def split_with_indicators(data, chps, n_step):
             seq_wma = subwma[i:end_seq]
             seq_ppo = subppo[i:end_seq]
             domain = index
-            input = np.concatenate((seq_x, seq_cmo, seq_roc, seq_rsi, seq_wma, seq_ppo), axis=0)
+            input_data = np.concatenate((seq_x, seq_cmo, seq_roc, seq_rsi, seq_wma, seq_ppo), axis=0)
             # input = input.squeeze()
-            input = np.append(input, domain)
+            input_data = np.append(input_data, domain)
 
             label = 0.  # Target value lower or equal than input sequence
             if y > statistics.mean(seq_x.flatten()):
                 label = 1.  # Target value greater than input sequence
 
-            input = torch.Tensor(input)
+            input_data = torch.Tensor(input_data)
+            if config["fcn"]:
+                input_data = torch.reshape(input_data, (input_data.shape[0], 1))
             label = torch.Tensor(np.array(label))
-            if not torch.isnan(torch.sum(input)):
-                seq.append((input, label))
+            if not torch.isnan(torch.sum(input_data)):
+                seq.append((input_data, label))
             i += 1
 
         train_data.append(seq[:round(len(seq) * 0.75)])
@@ -90,8 +93,9 @@ def split_with_indicators(data, chps, n_step):
     return train_data, test_data
 
 
-def split_data(data, chps, n_step):
+def split_data(config, data, chps, n_step):
     """
+    :param config: config
     :param data: data
     :param chps: list of changepoint detected
     :param n_step: size of a sequence
@@ -109,15 +113,17 @@ def split_data(data, chps, n_step):
                 break
             seq_x, y = subdata[i:end_seq], subdata[end_seq + n_step - 1]
             domain = index
-            input = np.append(seq_x, domain)
+            input_data = np.append(seq_x, domain)
 
             label = 0.  # Target value lower or equal than input sequence
             if y > statistics.mean(seq_x.flatten()):
                 label = 1.  # Target value greater than input sequence
 
-            input = torch.Tensor(input)
+            input_data = torch.Tensor(input_data)
+            if config["fcn"]:
+                input_data = torch.reshape(input_data, (input_data.shape[0], 1))
             label = torch.Tensor(np.array(label))
-            seq.append((input, label))
+            seq.append((input_data, label))
             i += 1
         train_data.append(seq[:round(len(seq) * 0.75)])
         test_data.append(seq[round(len(seq) * 0.75):])
@@ -181,7 +187,6 @@ def eval_bayesian(chps, raw_data):
     plt.xlabel("Timestep")
     plt.ylabel("Price")
     plt.show()
-
 
     # Evaluation of train/test split
     splits = np.split(raw_data, chps)

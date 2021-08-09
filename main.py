@@ -2,9 +2,10 @@ import argparse
 import os
 import warnings
 import torch
+import time
 
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
-from utils.models import RegressionMLP, ClassficationMLP
+from utils.models import RegressionMLP, ClassficationMLP, SimpleCNN
 from utils.training import train_er, train_online, train_ewc, train_si, train_dark_er
 from utils.utils import read_csv, split_data, split_with_indicators, compute_diff, eval_bayesian, check_changepoints, \
     timeperiod
@@ -36,6 +37,9 @@ parser.add_argument('--suffix', type=str, default="",
                     help="Suffix name")
 parser.add_argument('--evaluate', action='store_true',
                     help="Test previous + current domain each epoch")
+# Network
+parser.add_argument('--fcn', action='store_true',
+                    help="Fully Convolutional Network")
 # Methods
 parser.add_argument('--online', action='store_true',
                     help="Online Learning")
@@ -65,6 +69,8 @@ parser.add_argument('--alpha', type=float, default=0.1,
 
 
 def main(config):
+    start = time.time()
+
     raw_data = read_csv(config["dataset"])
 
     # Check if chps are already saved
@@ -85,13 +91,13 @@ def main(config):
 
     # Split in N train/test set (data + feature)
     if config['processing'] == 'indicators':
-        train_data, test_data = split_with_indicators(raw_data, chps, n_step)
+        train_data, test_data = split_with_indicators(config, raw_data, chps, n_step)
     elif config['processing'] == 'difference':
         raw_data = compute_diff(raw_data)
-        train_data, test_data = split_data(raw_data, chps, n_step)
+        train_data, test_data = split_data(config, raw_data, chps, n_step)
     else:
         raw_data = np.array(raw_data).reshape(-1, 1)
-        train_data, test_data = split_data(raw_data, chps, n_step)
+        train_data, test_data = split_data(config, raw_data, chps, n_step)
 
     # Cuda
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -107,7 +113,10 @@ def main(config):
         loss = nn.MSELoss()
         optimizer = torch.optim.Adadelta(model.parameters(), lr=config["lr"])
     else:
-        model = ClassficationMLP(input_size=input_size)
+        if config["fcn"]:
+            model = SimpleCNN(input_size=input_size)
+        else:
+            model = ClassficationMLP(input_size=input_size)
         model = model.to(device)
         loss = nn.CrossEntropyLoss()
         optimizer = torch.optim.SGD(model.parameters(), lr=config["lr"])
@@ -121,6 +130,13 @@ def main(config):
         suffix = config['dataset'].partition('-')[0]
     else:
         suffix = config['suffix']
+
+    # Train with CNN
+    # initial_model = torch.load('checkpoints/model_scratch.pt')
+    # model.load_state_dict(initial_model['model_state_dict'])
+    # optimizer.load_state_dict(initial_model['optimizer_state_dict'])
+    # train_online(train_set=train_data, test_set=test_data, model=model, loss=loss,
+    #             optimizer=optimizer, config=config, device=device, suffix=suffix)
 
     # Online training
     if config["online"]:
@@ -161,6 +177,9 @@ def main(config):
         optimizer.load_state_dict(initial_model['optimizer_state_dict'])
         train_si(train_set=train_data, test_set=test_data, model=model, loss=loss,
                  optimizer=optimizer, device=device, config=config, suffix=suffix)
+
+    end = time.time()
+    print("\nTime elapsed: ", end - start, "s")
 
 
 if __name__ == "__main__":

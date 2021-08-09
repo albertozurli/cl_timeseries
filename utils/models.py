@@ -50,3 +50,39 @@ class ClassficationMLP(nn.Module):
         for pp in list(self.parameters()):
             grads.append(pp.grad.view(-1))
         return torch.cat(grads)
+
+
+class SimpleCNN(nn.Module):
+    def __init__(self, input_size):
+        super(SimpleCNN, self).__init__()
+        self.input_size = input_size
+        self.cnn = nn.Sequential(
+            nn.Conv1d(in_channels=input_size, out_channels=128, kernel_size=(1,)),
+            nn.ReLU(),
+            nn.Conv1d(in_channels=128, out_channels=256, kernel_size=(1,)),
+            nn.ReLU(),
+            nn.Conv1d(in_channels=256, out_channels=128, kernel_size=(1,)),
+            nn.ReLU(),
+        )
+        self.fc = nn.Sequential(
+            nn.Linear(128,64),
+            nn.Linear(64,2)
+        )
+
+    def forward(self, x):
+        x = self.cnn(x)
+        x = x.view(x.shape[0],-1)
+        x = self.fc(x)
+        return x
+
+    def get_params(self):
+        params = []
+        for pp in list(self.parameters()):
+            params.append(pp.view(-1))
+        return torch.cat(params)
+
+    def get_grads(self):
+        grads = []
+        for pp in list(self.parameters()):
+            grads.append(pp.grad.view(-1))
+        return torch.cat(grads)
