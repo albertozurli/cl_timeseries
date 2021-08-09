@@ -38,8 +38,8 @@ parser.add_argument('--suffix', type=str, default="",
 parser.add_argument('--evaluate', action='store_true',
                     help="Test previous + current domain each epoch")
 # Network
-parser.add_argument('--fcn', action='store_true',
-                    help="Fully Convolutional Network")
+parser.add_argument('--cnn', action='store_true',
+                    help="Convolutional Network")
 # Methods
 parser.add_argument('--online', action='store_true',
                     help="Online Learning")
@@ -113,7 +113,7 @@ def main(config):
         loss = nn.MSELoss()
         optimizer = torch.optim.Adadelta(model.parameters(), lr=config["lr"])
     else:
-        if config["fcn"]:
+        if config["cnn"]:
             model = SimpleCNN(input_size=input_size)
         else:
             model = ClassficationMLP(input_size=input_size)
@@ -130,13 +130,6 @@ def main(config):
         suffix = config['dataset'].partition('-')[0]
     else:
         suffix = config['suffix']
-
-    # Train with CNN
-    # initial_model = torch.load('checkpoints/model_scratch.pt')
-    # model.load_state_dict(initial_model['model_state_dict'])
-    # optimizer.load_state_dict(initial_model['optimizer_state_dict'])
-    # train_online(train_set=train_data, test_set=test_data, model=model, loss=loss,
-    #             optimizer=optimizer, config=config, device=device, suffix=suffix)
 
     # Online training
     if config["online"]:

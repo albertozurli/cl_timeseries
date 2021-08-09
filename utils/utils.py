@@ -64,24 +64,21 @@ def split_with_indicators(config, data, chps, n_step):
             end_seq = i + n_step
             if end_seq > (len(subdata) - n_step):
                 break
-            seq_x, y = subdata[i:end_seq], subdata[end_seq + n_step - 1]
-            seq_cmo = subcmo[i:end_seq]
-            seq_roc = subroc[i:end_seq]
-            seq_rsi = subrsi[i:end_seq]
-            seq_wma = subwma[i:end_seq]
-            seq_ppo = subppo[i:end_seq]
-            domain = index
-            input_data = np.concatenate((seq_x, seq_cmo, seq_roc, seq_rsi, seq_wma, seq_ppo), axis=0)
-            # input = input.squeeze()
-            input_data = np.append(input_data, domain)
+            seq_x, y = subdata[i:end_seq].squeeze(), subdata[end_seq + n_step - 1]
+            seq_cmo = subcmo[i:end_seq].squeeze()
+            seq_roc = subroc[i:end_seq].squeeze()
+            seq_rsi = subrsi[i:end_seq].squeeze()
+            seq_wma = subwma[i:end_seq].squeeze()
+            seq_ppo = subppo[i:end_seq].squeeze()
+            input_data = np.stack([seq_x, seq_cmo, seq_roc, seq_rsi, seq_wma, seq_ppo])
 
             label = 0.  # Target value lower or equal than input sequence
             if y > statistics.mean(seq_x.flatten()):
                 label = 1.  # Target value greater than input sequence
 
             input_data = torch.Tensor(input_data)
-            if config["fcn"]:
-                input_data = torch.reshape(input_data, (input_data.shape[0], 1))
+            if not config["cnn"]:
+                input_data = torch.flatten(input_data)
             label = torch.Tensor(np.array(label))
             if not torch.isnan(torch.sum(input_data)):
                 seq.append((input_data, label))

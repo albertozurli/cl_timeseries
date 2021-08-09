@@ -409,7 +409,6 @@ def train_online(train_set, test_set, model, loss, optimizer, device, config, su
 
     # Eval without training
     print("-----EVAL PRE-TRAINING-----")
-
     random_accuracy, random_error, random_mean_accuracy, random_mean_error \
         = evaluate_past(model, len(test_set) - 1, test_set, loss, device)
     print(f"Mean Error: {statistics.mean(random_error):.2f} | Mean Acc: {statistics.mean(random_accuracy):.2f}%")

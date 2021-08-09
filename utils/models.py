@@ -57,21 +57,25 @@ class SimpleCNN(nn.Module):
         super(SimpleCNN, self).__init__()
         self.input_size = input_size
         self.cnn = nn.Sequential(
-            nn.Conv1d(in_channels=input_size, out_channels=128, kernel_size=(1,)),
+            nn.Conv1d(in_channels=input_size, out_channels=32, kernel_size=(1,)),
             nn.ReLU(),
-            nn.Conv1d(in_channels=128, out_channels=256, kernel_size=(1,)),
+            nn.Conv1d(in_channels=32, out_channels=32, kernel_size=(1,)),
             nn.ReLU(),
-            nn.Conv1d(in_channels=256, out_channels=128, kernel_size=(1,)),
+            nn.Conv1d(in_channels=32, out_channels=64, kernel_size=(1,)),
+            nn.ReLU(),
+            nn.Conv1d(in_channels=64, out_channels=64, kernel_size=(1,)),
+            nn.ReLU(),
+            nn.Conv1d(in_channels=64, out_channels=64, kernel_size=(1,)),
             nn.ReLU(),
         )
         self.fc = nn.Sequential(
-            nn.Linear(128,64),
-            nn.Linear(64,2)
+            nn.Linear(64*30, 32),
+            nn.Linear(32, 2),
         )
 
     def forward(self, x):
         x = self.cnn(x)
-        x = x.view(x.shape[0],-1)
+        x = x.view(x.shape[0], -1)
         x = self.fc(x)
         return x
 
