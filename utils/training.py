@@ -90,6 +90,128 @@ def evaluate_past(model, domain, test_set, loss, device):
     return flat_accs, flat_errors, mean_accs, mean_errors
 
 
+def train_online(train_set, test_set, model, loss, optimizer, device, config, suffix):
+    """
+    :param train_set: Train set
+    :param test_set: Test set
+    :param model: PyTorch model
+    :param loss: loss function
+    :param optimizer: optimizer
+    :param device: device cuda/cpu
+    :param config: configuration
+    :param suffix: Suffix for the filename and Summary Writer
+    """
+
+    train_writer = SummaryWriter('./runs/online/train/' + suffix)
+
+    if config['evaluate']:
+        text_file = open("online_" + suffix + ".txt", "a")
+        text_file.write("ONLINE LEARNING \n")
+        text_file.write("---Eval pre-training--- \n")
+
+    # Eval without training
+    print("-----EVAL PRE-TRAINING-----")
+    random_accuracy, random_error, random_mean_accuracy, random_mean_error \
+        = evaluate_past(model, len(test_set) - 1, test_set, loss, device)
+    print(f"Mean Error: {statistics.mean(random_error):.2f} | Mean Acc: {statistics.mean(random_accuracy):.2f}%")
+    if config['evaluate']:
+        for i, a in enumerate(random_mean_accuracy):
+            text_file.write(f"Domain {i} | Error: {random_mean_error[i]:.2f} | Acc: {a:.2f}%\n")
+        text_file.write(f"Mean Error: {statistics.mean(random_error):.2f} |"
+                        f" Mean Acc: {statistics.mean(random_accuracy):.2f}% \n")
+
+    # N SummaryWriter for N domains
+    if config['evaluate']:
+        test_writer = SummaryWriter('./runs/online/test/' + suffix)
+        writer_list = []
+        test_list = [[] for _ in range(len(train_set))]
+        for i in range(len(train_set)):
+            writer_list.append(SummaryWriter(f'./runs/online/test/{suffix}/d_{i}'))
+
+    # Train
+    for index, data_set in enumerate(train_set):
+        model.train()
+        print(f"----- DOMAIN {index} -----")
+        train_loader = DataLoader(data_set, batch_size=config["batch_size"], shuffle=False)
+
+        for i in tqdm(range(config['epochs'])):
+            model.train()
+
+            epoch_loss = []
+            epoch_acc = []
+            for j, (x, y) in enumerate(train_loader):
+                optimizer.zero_grad()
+
+                x = x.to(device)
+                output = model(x)
+                y = y.to(device)
+
+                lambda1 = 0.01
+                l1_reg = 0
+                # l1_reg = l1_reg.to(device)
+                for param in model.get_params():
+                    l1_reg += torch.norm(param, 1)
+
+                s_loss = loss(output, y.long()) + lambda1 * l1_reg
+                s_loss = loss(output, y.long())
+
+                _, pred = torch.max(output.data, 1)
+                acc = binary_accuracy(pred.float(), y)
+
+                epoch_loss.append(s_loss.item())
+                epoch_acc.append(acc.item())
+
+                s_loss.backward()
+                optimizer.step()
+
+            train_writer.add_scalar('Train/loss',
+                                    statistics.mean(epoch_loss), i + (config['epochs'] * index))
+            train_writer.add_scalar('Train/accuracy',
+                                    statistics.mean(epoch_acc), i + (config['epochs'] * index))
+
+            if i % 100 == 0:
+                print(f'\nEpoch {i:03}/{config["epochs"]} | Loss: {statistics.mean(epoch_loss):.2f} '
+                      f'| Acc: {statistics.mean(epoch_acc):.2f}%')
+
+            # Last epoch (only for stats)
+            if i == 499:
+                print(f'\nEpoch {i:03}/{config["epochs"]} | Loss: {statistics.mean(epoch_loss):.2f} '
+                      f'| Acc: {statistics.mean(epoch_acc):.2f}% \n')
+
+            # Test each epoch
+            if config['evaluate']:
+                tmp_list = []
+                for past in range(index + 1):
+                    test_loader = DataLoader(test_set[past], batch_size=1, shuffle=False)
+                    tmp = test_epoch(model, test_loader, device)
+                    writer_list[past].add_scalar('Test/domain_accuracy', statistics.mean(tmp),
+                                                 i + (config['epochs'] * index))
+                    test_list[past].append(statistics.mean(tmp))
+                    for t in tmp:
+                        tmp_list.append(t)
+
+                avg = sum(tmp_list) / len(tmp_list)
+                test_writer.add_scalar('Test/mean_accuracy', avg, i + (config['epochs'] * index))
+
+        # Test at the end of domain
+        evaluation, error, mean_evaluation, mean_error = evaluate_past(model, index, test_set, loss, device)
+        print(f"Mean Error: {statistics.mean(error):.2f} | Mean Acc: {statistics.mean(evaluation):.2f}%")
+        if config['evaluate']:
+            text_file.write(f"---Evaluation after domain {index}--- \n")
+            for i, a in enumerate(mean_evaluation):
+                text_file.write(f"Domain {i} | Error: {mean_error[i]:.2f} | Acc: {a:.2f}%\n")
+            text_file.write(f"Mean Error: {statistics.mean(error):.2f} | "
+                            f"Mean Acc: {statistics.mean(evaluation):.2f}% \n")
+
+        torch.save(model.state_dict(), f'checkpoints/online/model_d{index}.pt')
+
+    if config['evaluate']:
+        text_file.close()
+
+        df = pd.DataFrame(test_list)
+        df.to_csv(f'{suffix}_online.csv')
+
+
 def train_dark_er(train_set, test_set, model, loss, optimizer, device, config, suffix):
     """
     :param train_set: Train set
@@ -129,8 +251,7 @@ def train_dark_er(train_set, test_set, model, loss, optimizer, device, config, s
     if config['evaluate']:
         test_writer = SummaryWriter('./runs/dark_exp_replay/test/' + suffix)
         writer_list = []
-        test_list = [[] for _ in range(len(train_set) + 1)]
-        mean_acc_list = []
+        test_list = [[] for _ in range(len(train_set))]
         for i in range(len(train_set)):
             writer_list.append(SummaryWriter(f'./runs/dark_exp_replay/test/{suffix}/d_{i}'))
 
@@ -170,7 +291,7 @@ def train_dark_er(train_set, test_set, model, loss, optimizer, device, config, s
                 optimizer.step()
 
                 if epoch == 0:
-                    buffer.add_data(examples=x.to(device), labels=output.to(device))
+                    buffer.add_data(examples=x.to(device), task=index, labels=output.to(device))
 
             train_writer.add_scalar('Train/loss', statistics.mean(epoch_loss),
                                     epoch + (config['epochs'] * index))
@@ -188,18 +309,14 @@ def train_dark_er(train_set, test_set, model, loss, optimizer, device, config, s
 
             # Test each epoch
             if config['evaluate']:
-                tmp_bucket = []
                 for past in range(index + 1):
                     test_loader = DataLoader(test_set[past], batch_size=1, shuffle=False)
                     tmp = test_epoch(model, test_loader, device)
-                    tmp_bucket.append(tmp)
                     writer_list[past].add_scalar('Test/domain_accuracy', statistics.mean(tmp),
                                                  epoch + (config['epochs'] * index))
                     test_list[past].append(statistics.mean(tmp))
 
-                tmp_bucket = [item for sublist in tmp_bucket for item in sublist]
-                avg = sum(tmp_bucket) / len(tmp_bucket)
-                mean_acc_list.append(avg)
+                avg = sum(tmp) / len(tmp)
                 test_writer.add_scalar('Test/mean_accuracy', avg, epoch + (config['epochs'] * index))
 
         # Test at the end of domain
@@ -234,8 +351,6 @@ def train_dark_er(train_set, test_set, model, loss, optimizer, device, config, s
         text_file.write(f"Forward: {forward}\n")
         text_file.write(f"Forgetting: {forget}\n")
         text_file.close()
-
-        test_list[len(test_list) - 1].append(mean_acc_list)
 
         df = pd.DataFrame(test_list)
         df.to_csv(f'{suffix}_der.csv')
@@ -279,8 +394,7 @@ def train_er(train_set, test_set, model, loss, optimizer, device, config, suffix
     if config['evaluate']:
         test_writer = SummaryWriter('./runs/exp_replay/test/' + suffix)
         writer_list = []
-        test_list = [[] for _ in range(len(train_set) + 1)]
-        mean_acc_list = []
+        test_list = [[] for _ in range(len(train_set))]
         for i in range(len(train_set)):
             writer_list.append(SummaryWriter(f'./runs/exp_replay/test/{suffix}/d_{i}'))
 
@@ -317,7 +431,7 @@ def train_er(train_set, test_set, model, loss, optimizer, device, config, suffix
                 optimizer.step()
 
                 if epoch == 0:
-                    buffer.add_data(examples=x.to(device), labels=y.to(device))
+                    buffer.add_data(examples=x.to(device), task=index, labels=y.to(device))
 
             train_writer.add_scalar('Train/loss', statistics.mean(epoch_loss),
                                     epoch + (config['epochs'] * index))
@@ -335,18 +449,14 @@ def train_er(train_set, test_set, model, loss, optimizer, device, config, suffix
 
             # Test each epoch
             if config['evaluate']:
-                tmp_bucket = []
                 for past in range(index + 1):
                     test_loader = DataLoader(test_set[past], batch_size=1, shuffle=False)
                     tmp = test_epoch(model, test_loader, device)
-                    tmp_bucket.append(tmp)
                     writer_list[past].add_scalar('Test/domain_accuracy', statistics.mean(tmp),
                                                  epoch + (config['epochs'] * index))
                     test_list[past].append(statistics.mean(tmp))
 
-                tmp_bucket = [item for sublist in tmp_bucket for item in sublist]
-                avg = sum(tmp_bucket) / len(tmp_bucket)
-                mean_acc_list.append(avg)
+                avg = sum(tmp) / len(tmp)
                 test_writer.add_scalar('Test/mean_accuracy', avg, epoch + (config['epochs'] * index))
 
         # Test at the end of domain
@@ -382,127 +492,8 @@ def train_er(train_set, test_set, model, loss, optimizer, device, config, suffix
         text_file.write(f"Forgetting: {forget}\n")
         text_file.close()
 
-        test_list[len(test_list) - 1].append(mean_acc_list)
-
         df = pd.DataFrame(test_list)
         df.to_csv(f'{suffix}_er.csv')
-
-
-def train_online(train_set, test_set, model, loss, optimizer, device, config, suffix):
-    """
-    :param train_set: Train set
-    :param test_set: Test set
-    :param model: PyTorch model
-    :param loss: loss function
-    :param optimizer: optimizer
-    :param device: device cuda/cpu
-    :param config: configuration
-    :param suffix: Suffix for the filename and Summary Writer
-    """
-
-    train_writer = SummaryWriter('./runs/online/train/' + suffix)
-
-    if config['evaluate']:
-        text_file = open("online_" + suffix + ".txt", "a")
-        text_file.write("ONLINE LEARNING \n")
-        text_file.write("---Eval pre-training--- \n")
-
-    # Eval without training
-    print("-----EVAL PRE-TRAINING-----")
-    random_accuracy, random_error, random_mean_accuracy, random_mean_error \
-        = evaluate_past(model, len(test_set) - 1, test_set, loss, device)
-    print(f"Mean Error: {statistics.mean(random_error):.2f} | Mean Acc: {statistics.mean(random_accuracy):.2f}%")
-    if config['evaluate']:
-        for i, a in enumerate(random_mean_accuracy):
-            text_file.write(f"Domain {i} | Error: {random_mean_error[i]:.2f} | Acc: {a:.2f}%\n")
-        text_file.write(f"Mean Error: {statistics.mean(random_error):.2f} |"
-                        f" Mean Acc: {statistics.mean(random_accuracy):.2f}% \n")
-
-    # N SummaryWriter for N domains
-    if config['evaluate']:
-        test_writer = SummaryWriter('./runs/online/test/' + suffix)
-        writer_list = []
-        test_list = [[] for _ in range(len(train_set) + 1)]
-        mean_acc_list = []
-        for i in range(len(train_set)):
-            writer_list.append(SummaryWriter(f'./runs/online/test/{suffix}/d_{i}'))
-
-    # Train
-    for index, data_set in enumerate(train_set):
-        model.train()
-        print(f"----- DOMAIN {index} -----")
-        train_loader = DataLoader(data_set, batch_size=config["batch_size"], shuffle=False)
-
-        for i in tqdm(range(config['epochs'])):
-            model.train()
-
-            epoch_loss = []
-            epoch_acc = []
-            for j, (x, y) in enumerate(train_loader):
-                optimizer.zero_grad()
-
-                x = x.to(device)
-                output = model(x)
-                y = y.to(device)
-                s_loss = loss(output, y.long())
-                _, pred = torch.max(output.data, 1)
-                acc = binary_accuracy(pred.float(), y)
-
-                epoch_loss.append(s_loss.item())
-                epoch_acc.append(acc.item())
-
-                s_loss.backward()
-                optimizer.step()
-
-            train_writer.add_scalar('Train/loss',
-                                    statistics.mean(epoch_loss), i + (config['epochs'] * index))
-            train_writer.add_scalar('Train/accuracy',
-                                    statistics.mean(epoch_acc), i + (config['epochs'] * index))
-
-            if i % 100 == 0:
-                print(f'\nEpoch {i:03}/{config["epochs"]} | Loss: {statistics.mean(epoch_loss):.2f} '
-                      f'| Acc: {statistics.mean(epoch_acc):.2f}%')
-
-            # Last epoch (only for stats)
-            if i == 499:
-                print(f'\nEpoch {i:03}/{config["epochs"]} | Loss: {statistics.mean(epoch_loss):.2f} '
-                      f'| Acc: {statistics.mean(epoch_acc):.2f}% \n')
-
-            # Test each epoch
-            if config['evaluate']:
-                tmp_bucket = []
-                for past in range(index + 1):
-                    test_loader = DataLoader(test_set[past], batch_size=1, shuffle=False)
-                    tmp = test_epoch(model, test_loader, device)
-                    tmp_bucket.append(tmp)
-                    writer_list[past].add_scalar('Test/domain_accuracy', statistics.mean(tmp),
-                                                 i + (config['epochs'] * index))
-                    test_list[past].append(statistics.mean(tmp))
-
-                tmp_bucket = [item for sublist in tmp_bucket for item in sublist]
-                avg = sum(tmp_bucket) / len(tmp_bucket)
-                mean_acc_list.append(avg)
-                test_writer.add_scalar('Test/mean_accuracy', avg, i + (config['epochs'] * index))
-
-        # Test at the end of domain
-        evaluation, error, mean_evaluation, mean_error = evaluate_past(model, index, test_set, loss, device)
-        print(f"Mean Error: {statistics.mean(error):.2f} | Mean Acc: {statistics.mean(evaluation):.2f}%")
-        if config['evaluate']:
-            text_file.write(f"---Evaluation after domain {index}--- \n")
-            for i, a in enumerate(mean_evaluation):
-                text_file.write(f"Domain {i} | Error: {mean_error[i]:.2f} | Acc: {a:.2f}%\n")
-            text_file.write(f"Mean Error: {statistics.mean(error):.2f} | "
-                            f"Mean Acc: {statistics.mean(evaluation):.2f}% \n")
-
-        torch.save(model.state_dict(), f'checkpoints/online/model_d{index}.pt')
-
-    if config['evaluate']:
-        text_file.close()
-
-        test_list[len(test_list) - 1].append(mean_acc_list)
-
-        df = pd.DataFrame(test_list)
-        df.to_csv(f'{suffix}_online.csv')
 
 
 def train_ewc(model, loss, device, optimizer, train_set, test_set, suffix, config):
@@ -531,8 +522,7 @@ def train_ewc(model, loss, device, optimizer, train_set, test_set, suffix, confi
     if config['evaluate']:
         test_writer = SummaryWriter('./runs/ewc/test/' + suffix)
         writer_list = []
-        test_list = [[] for _ in range(len(train_set) + 1)]
-        mean_acc_list = []
+        test_list = [[] for _ in range(len(train_set))]
         for i in range(len(train_set)):
             writer_list.append(SummaryWriter(f'./runs/ewc/test/{suffix}/d_{i}'))
 
@@ -582,18 +572,14 @@ def train_ewc(model, loss, device, optimizer, train_set, test_set, suffix, confi
 
             # Test each epoch
             if config['evaluate']:
-                tmp_bucket = []
                 for past in range(index + 1):
                     test_loader = DataLoader(test_set[past], batch_size=1, shuffle=False)
                     tmp = test_epoch(model, test_loader, device)
-                    tmp_bucket.append(tmp)
                     writer_list[past].add_scalar('Test/domain_accuracy', statistics.mean(tmp),
                                                  epoch + (config['epochs'] * index))
                     test_list[past].append(statistics.mean(tmp))
 
-                tmp_bucket = [item for sublist in tmp_bucket for item in sublist]
-                avg = sum(tmp_bucket) / len(tmp_bucket)
-                mean_acc_list.append(avg)
+                avg = sum(tmp) / len(tmp)
                 test_writer.add_scalar('Test/mean_accuracy', avg, epoch + (config['epochs'] * index))
 
         ewc.end_task(data_set)
@@ -628,8 +614,6 @@ def train_ewc(model, loss, device, optimizer, train_set, test_set, suffix, confi
         text_file.write(f"Forgetting: {forget}\n")
         text_file.close()
 
-        test_list[len(test_list) - 1].append(mean_acc_list)
-
         df = pd.DataFrame(test_list)
         df.to_csv(f'{suffix}_ewc.csv')
 
@@ -660,8 +644,7 @@ def train_si(model, loss, device, optimizer, train_set, test_set, suffix, config
     if config['evaluate']:
         test_writer = SummaryWriter('./runs/si/test/' + suffix)
         writer_list = []
-        test_list = [[] for _ in range(len(train_set) + 1)]
-        mean_acc_list = []
+        test_list = [[] for _ in range(len(train_set))]
         for i in range(len(train_set)):
             writer_list.append(SummaryWriter(f'./runs/si/test/{suffix}/d_{i}'))
 
@@ -712,18 +695,14 @@ def train_si(model, loss, device, optimizer, train_set, test_set, suffix, config
 
             # Test each epoch
             if config['evaluate']:
-                tmp_bucket = []
                 for past in range(index + 1):
                     test_loader = DataLoader(test_set[past], batch_size=1, shuffle=False)
                     tmp = test_epoch(model, test_loader, device)
-                    tmp_bucket.append(tmp)
                     writer_list[past].add_scalar('Test/domain_accuracy', statistics.mean(tmp),
                                                  epoch + (config['epochs'] * index))
                     test_list[past].append(statistics.mean(tmp))
 
-                tmp_bucket = [item for sublist in tmp_bucket for item in sublist]
-                avg = sum(tmp_bucket) / len(tmp_bucket)
-                mean_acc_list.append(avg)
+                avg = sum(tmp) / len(tmp)
                 test_writer.add_scalar('Test/mean_accuracy', avg, epoch + (config['epochs'] * index))
 
         si.end_task()
@@ -757,8 +736,6 @@ def train_si(model, loss, device, optimizer, train_set, test_set, suffix, config
         text_file.write(f"Forward: {forward}\n")
         text_file.write(f"Forgetting: {forget}\n")
         text_file.close()
-
-        test_list[len(test_list) - 1].append(mean_acc_list)
 
         df = pd.DataFrame(test_list)
         df.to_csv(f'{suffix}_si.csv')

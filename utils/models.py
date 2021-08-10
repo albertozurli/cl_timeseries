@@ -58,18 +58,23 @@ class SimpleCNN(nn.Module):
         self.input_size = input_size
         self.cnn = nn.Sequential(
             nn.Conv1d(in_channels=input_size, out_channels=32, kernel_size=(1,)),
+            # nn.Dropout(0.5),
             nn.ReLU(),
             nn.Conv1d(in_channels=32, out_channels=32, kernel_size=(1,)),
+            # nn.Dropout(0.5),
             nn.ReLU(),
             nn.Conv1d(in_channels=32, out_channels=64, kernel_size=(1,)),
+            # nn.Dropout(0.5),
             nn.ReLU(),
             nn.Conv1d(in_channels=64, out_channels=64, kernel_size=(1,)),
+            # nn.Dropout(0.5),
             nn.ReLU(),
             nn.Conv1d(in_channels=64, out_channels=64, kernel_size=(1,)),
+            # nn.Dropout(0.5),
             nn.ReLU(),
         )
         self.fc = nn.Sequential(
-            nn.Linear(64*30, 32),
+            nn.Linear(64*30,32),
             nn.Linear(32, 2),
         )
 

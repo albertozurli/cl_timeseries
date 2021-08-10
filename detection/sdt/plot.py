@@ -5,7 +5,7 @@
 """Plotting utilities
 ==================
 
-The :py:mod:`sdt.plot` module contains the :py:func:`density_scatter` function,
+The :py:mod:`sdt.plots` module contains the :py:func:`density_scatter` function,
 which is a wrapper around `matplotlib`'s as well as `bokeh`'s ``scatter()``
 function that additionally colors data points according to data point
 density.
@@ -38,7 +38,7 @@ except ImportError:
 
 
 def density_scatter(x, y, ax=None, cmap="viridis", **kwargs):
-    """Make a scatter plot with points colored according to density
+    """Make a scatter plots with points colored according to density
 
     Use a Gaussian kernel density estimate to calculate the density of
     data points and color them accordingly.

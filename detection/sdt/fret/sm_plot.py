@@ -26,15 +26,15 @@ def smfret_scatter(track_data, xdata=("fret", "eff"), ydata=("fret", "stoi"),
         The DataFrames have to have the same format as e.g. produced by
         :py:class:`SmFRETTracker`.
     x_data, y_data : tuple of str, optional
-        Column indices of data to plot on the x (y) axis. Defaults to
+        Column indices of data to plots on the x (y) axis. Defaults to
         ``("fret", "eff")`` for `x_data` and ``("fret", "stoi")`` for
         `y_data`.
     frame : int or None, optional
-        If given, only plot data from a certain frame. Defaults to None.
+        If given, only plots data from a certain frame. Defaults to None.
     columns : int, optional
         In how many columns to lay out plots. Defaults to 2.
     size : int, optional
-        Size per plot. Defaults to 5.
+        Size per plots. Defaults to 5.
     xlim, ylim : tuple of float, optional
         Set x (y) axis limits. Defaults to ``(None, None)``, i.e. automatic
         determination.
@@ -115,11 +115,11 @@ def smfret_hist(track_data, data=("fret", "eff"), frame=None, columns=2,
     data, y_data : tuple of str, optional
         Column indices of data. Defaults to ``("fret", "eff")``.
     frame : int or None, optional
-        If given, only plot data from a certain frame. Defaults to None.
+        If given, only plots data from a certain frame. Defaults to None.
     columns : int, optional
         In how many columns to lay out plots. Defaults to 2.
     size : int, optional
-        Size per plot. Defaults to 5.
+        Size per plots. Defaults to 5.
     xlim: tuple of float, optional
         Set x axis limits. Defaults to ``(None, None)``, i.e. automatic
         determination.
@@ -129,9 +129,9 @@ def smfret_hist(track_data, data=("fret", "eff"), frame=None, columns=2,
     group_re : tuple(str, int, int) or None, optional
         The first entry in the tuple should be a regular expression with at
         least two groups. Datasets from `track_data` will be plotted in the
-        same plot if whichever regex group is specified by the second entry in
+        same plots if whichever regex group is specified by the second entry in
         the tuple is the same. The third entry identifies the label of the
-        dataset in the plot. If None, do no grouping. Defaults to None.
+        dataset in the plots. If None, do no grouping. Defaults to None.
     hist_args : dict, optional
         Further arguments to pass as keyword arguments to the histogram
         plotting function. Defaults to {}.

@@ -51,13 +51,15 @@ def split_with_indicators(config, data, chps, n_step):
     cmo, roc, rsi, wma, ppo = indicators(data)
     data = np.array(data).reshape(-1, 1)
     data_split = np.split(data, chps)
+    diff_data = np.diff(data, axis=0)
+    diff_split = np.split(diff_data, chps)
     cmo_split = np.split(cmo, chps)
     roc_split = np.split(roc, chps)
     rsi_split = np.split(rsi, chps)
     wma_split = np.split(wma, chps)
     ppo_split = np.split(ppo, chps)
-    for index, (subdata, subcmo, subroc, subrsi, subwma, subppo) in \
-            enumerate(zip(data_split, cmo_split, roc_split, rsi_split, wma_split, ppo_split)):
+    for index, (subdata, subdiff, subcmo, subroc, subrsi, subwma, subppo) in \
+            enumerate(zip(data_split, diff_split, cmo_split, roc_split, rsi_split, wma_split, ppo_split)):
         seq = []
         i = 0
         while i < len(subdata):
@@ -65,12 +67,13 @@ def split_with_indicators(config, data, chps, n_step):
             if end_seq > (len(subdata) - n_step):
                 break
             seq_x, y = subdata[i:end_seq].squeeze(), subdata[end_seq + n_step - 1]
+            seq_diff = subdiff[i:end_seq].squeeze()
             seq_cmo = subcmo[i:end_seq].squeeze()
             seq_roc = subroc[i:end_seq].squeeze()
             seq_rsi = subrsi[i:end_seq].squeeze()
             seq_wma = subwma[i:end_seq].squeeze()
             seq_ppo = subppo[i:end_seq].squeeze()
-            input_data = np.stack([seq_x, seq_cmo, seq_roc, seq_rsi, seq_wma, seq_ppo])
+            input_data = np.stack([seq_x, seq_diff, seq_cmo, seq_roc, seq_rsi, seq_wma, seq_ppo])
 
             label = 0.  # Target value lower or equal than input sequence
             if y > statistics.mean(seq_x.flatten()):

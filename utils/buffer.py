@@ -1,6 +1,8 @@
 import torch
 import numpy as np
 
+from collections import Counter
+
 
 def reservoir(seen_examples, buffer_size):
     """
@@ -31,11 +33,13 @@ class Buffer:
         self.attributes = ['examples', 'labels']
         self.examples = [None] * self.buffer_size
         self.labels = [None] * self.buffer_size
+        self.task_number = [None] * self.buffer_size
 
-    def add_data(self, examples, labels=None):
+    def add_data(self, examples, task, labels=None):
         """
         Adds the data to the memory buffer according to the reservoir strategy.
         :param examples: tensor containing the images
+        :param task: task number label
         :param labels: tensor containing the labels
         :return:
         """
@@ -44,6 +48,7 @@ class Buffer:
             self.seen_examples += 1
             if index >= 0:
                 self.examples[index] = examples[i].to(self.device)
+                self.task_number[index] = task
                 if labels is not None:
                     self.labels[index] = labels[i].to(self.device)
 
@@ -95,22 +100,10 @@ class Buffer:
         self.seen_examples = 0
 
     def check_distribution(self):
-        d0, d1, d2,d3,d4 = 0, 0, 0,0,0
-        index = self.examples[0].size()[0] - 1
-        for data in self.examples:
-            if data[index] == 0:
-                d0 += 1
-            if data[index] == 1:
-                d1 += 1
-            if data[index] == 2:
-                d2 += 1
-            if data[index] == 3:
-                d3 += 1
-            if data[index] == 4:
-                d4 += 1
+        count = Counter(self.task_number)
 
-        print(f"Buffer: D0 {d0}({d0 / self.buffer_size * 100}%)")
-        print(f"Buffer: D1 {d1}({d1 / self.buffer_size * 100}%)")
-        print(f"Buffer: D2 {d2}({d2 / self.buffer_size * 100}%)")
-        print(f"Buffer: D3 {d3}({d3 / self.buffer_size * 100}%)")
-        print(f"Buffer: D4 {d4}({d4 / self.buffer_size * 100}%)")
+        print(f"Buffer: D0 {count[0]}({count[0] / self.buffer_size * 100}%)")
+        print(f"Buffer: D1 {count[1]}({count[1] / self.buffer_size * 100}%)")
+        print(f"Buffer: D2 {count[2]}({count[2] / self.buffer_size * 100}%)")
+        print(f"Buffer: D3 {count[3]}({count[3] / self.buffer_size * 100}%)")
+        print(f"Buffer: D4 {count[4]}({count[4] / self.buffer_size * 100}%)")

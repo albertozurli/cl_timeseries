@@ -33,7 +33,7 @@ def plot_changepoints(data, changepoints, time=None, style="shade",
         Sequence of background colors for use with ``style="shade"``. Defaults
         to ``["#4286f4", "#f44174"]``, which are purple and pink.
     ax : matplotlib.axes.Axes or None
-        Axes object to plot on. If `None` (the default), get it by calling
+        Axes object to plots on. If `None` (the default), get it by calling
         pyplot's ``gca()``.
 
     Returns

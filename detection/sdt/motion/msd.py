@@ -435,7 +435,7 @@ class AnomalousDiffusion:
         Parameters
         ----------
         show_legend : bool, optional
-            Whether to add a legend to the plot. Defaults to `True`.
+            Whether to add a legend to the plots. Defaults to `True`.
         ax : matplotlib.axes.Axes or None, optional
             Axes to use for plotting. If `None`, use ``pyplot.gca()``.
             Defaults to `None`.
@@ -505,9 +505,9 @@ class AnomalousDiffusion:
         Parameters
         ----------
         data_id
-            A key in :py:attr:`_results` to plot
+            A key in :py:attr:`_results` to plots
         n_lag : int
-            Number of lag times to plot
+            Number of lag times to plots
         name : str
             Name of the data set given by `data_id` to be printed in the legend
         ax : matplotlib.axes.Axes
@@ -788,12 +788,12 @@ def plot_msd(emsd, d=None, pa=None, max_lagtime=100, show_legend=True, ax=None,
         Positional accuracy (see :py:func:`fit_msd`) If `None`, use
         :py:func:`fit_msd` to calculate it.
     max_lagtime : int, optional
-        Maximum number of lag times to plot. Defaults to 100.
+        Maximum number of lag times to plots. Defaults to 100.
     show_legend : bool, optional
         Whether to show the legend (the values of the diffusion coefficient D
-        and the positional accuracy) in the plot. Defaults to True.
+        and the positional accuracy) in the plots. Defaults to True.
     ax : matplotlib.axes.Axes or None, optional
-        If given, use this axes object to draw the plot. If None, use the
+        If given, use this axes object to draw the plots. If None, use the
         result of `matplotlib.pyplot.gca`.
     exposure_time : float, optional
         Correct positional accuracy for motion during exposure. Settings to 0

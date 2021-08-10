@@ -1213,7 +1213,7 @@ class TestMsdDistWeights:
         np.testing.assert_allclose(err.to_numpy(), errors[0])
 
     def test_plot(self, weight_data):
-        """msd_cdf.Weights.plot: Make sure it runs"""
+        """msd_cdf.Weights.plots: Make sure it runs"""
         w_cls = msd_dist.Weights(weight_data)
         w_cls.plot()
 

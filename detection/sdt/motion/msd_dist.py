@@ -490,7 +490,7 @@ class MsdDistFit:
     def plot(self, fig=None, weight_ax=None, msd_ax=None, show_legend=True):
         """Plot MSDs and fit results
 
-        First plot will show weights of the components, other plots will
+        First plots will show weights of the components, other plots will
         show MSDs and fits of each component.
 
         Parameters
@@ -505,7 +505,7 @@ class MsdDistFit:
             Axes objects for plotting the MSDs of each component. If `None`,
             use ``fig`` to create them. Defaults to `None`.
         show_legend : bool, optional
-            Whether to show numerical fit results in the plot legend. Defaults
+            Whether to show numerical fit results in the plots legend. Defaults
             to `True`.
 
         Returns
@@ -606,7 +606,7 @@ class Weights:
         Parameters
         ----------
         show_legend : bool, optional
-            Whether to add a legend to the plot. Defaults to `True`.
+            Whether to add a legend to the plots. Defaults to `True`.
         ax : matplotlib.axes.Axes or None, optional
             Axes to use for plotting. If `None`, use ``pyplot.gca()``.
             Defaults to `None`.
