@@ -1,0 +1,19 @@
+ONLINE LEARNING 
+---Evaluation after domain 0--- 
+Domain 0 | Error: 0.65110 | Acc: 62.09%
+Mean Error: 0.65110 | Mean Acc: 62.09% 
+---Evaluation after domain 1--- 
+Domain 0 | Error: 0.69317 | Acc: 52.25%
+Domain 1 | Error: 0.57119 | Acc: 80.48%
+Mean Error: 0.65647 | Mean Acc: 60.74% 
+---Evaluation after domain 2--- 
+Domain 0 | Error: 0.73816 | Acc: 52.46%
+Domain 1 | Error: 0.54686 | Acc: 78.81%
+Domain 2 | Error: 0.54805 | Acc: 78.11%
+Mean Error: 0.65283 | Mean Acc: 64.10% 
+---Evaluation after domain 3--- 
+Domain 0 | Error: 0.72225 | Acc: 53.89%
+Domain 1 | Error: 0.64780 | Acc: 66.67%
+Domain 2 | Error: 0.63070 | Acc: 57.57%
+Domain 3 | Error: 0.50712 | Acc: 82.04%
+Mean Error: 0.65164 | Mean Acc: 62.30% 

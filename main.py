@@ -7,8 +7,9 @@ import time
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 from utils.models import RegressionMLP, ClassficationMLP, SimpleCNN
 from utils.training import train_er, train_online, train_ewc, train_si, train_dark_er
-from utils.utils import read_csv, split_data, split_with_indicators, compute_diff, eval_bayesian, check_changepoints, \
+from utils.utils import read_csv, split_data, split_with_indicators, eval_bayesian, check_changepoints, \
     timeperiod
+from torchsummary import summary
 
 import numpy as np
 import torch.nn as nn
@@ -22,7 +23,7 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = 'True'
 parser = argparse.ArgumentParser(description='Thesis')
 parser.add_argument('--batch_size', type=int, default=64,
                     help="Batch size dimension")
-parser.add_argument('--epochs', type=int, default=500,
+parser.add_argument('--epochs', type=int, default=300,
                     help="Number of train epochs")
 parser.add_argument('--lr', type=float, default=0.0001,
                     help="Learning rate")
@@ -40,6 +41,8 @@ parser.add_argument('--evaluate', action='store_true',
 # Network
 parser.add_argument('--cnn', action='store_true',
                     help="Convolutional Network")
+parser.add_argument('--dropout', type=float, default=0.5,
+                    help="Probabilty for dropout")
 # Methods
 parser.add_argument('--online', action='store_true',
                     help="Online Learning")
@@ -79,6 +82,7 @@ def main(config):
     # Online changepoint
     if not saved:
         det = detection.BayesOnline()
+        # past and th heavily depend on data
         chp_online = det.find_changepoints(raw_data, past=50, prob_threshold=0.3)
         chps = chp_online[1:]
 
@@ -93,7 +97,7 @@ def main(config):
     if config['processing'] == 'indicators':
         train_data, test_data = split_with_indicators(config, raw_data, chps, n_step)
     elif config['processing'] == 'difference':
-        raw_data = compute_diff(raw_data)
+        raw_data = np.diff(raw_data, axis=0)
         train_data, test_data = split_data(config, raw_data, chps, n_step)
     else:
         raw_data = np.array(raw_data).reshape(-1, 1)
@@ -116,15 +120,16 @@ def main(config):
         if config["cnn"]:
             model = SimpleCNN(input_size=input_size)
         else:
-            model = ClassficationMLP(input_size=input_size)
+            model = ClassficationMLP(input_size=input_size, dropout=config['dropout'])
+        optimizer = torch.optim.SGD(model.parameters(), lr=config["lr"])
         model = model.to(device)
         loss = nn.CrossEntropyLoss()
-        optimizer = torch.optim.SGD(model.parameters(), lr=config["lr"])
         torch.save({'model_state_dict': model.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
                     }, 'checkpoints/model_scratch.pt')
 
-    print(model)
+    # print(model)
+    summary(model, train_data[0][0][0].size())
 
     if not config['suffix']:
         suffix = config['dataset'].partition('-')[0]

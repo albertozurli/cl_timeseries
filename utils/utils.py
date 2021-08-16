@@ -8,11 +8,6 @@ import talib
 from pathlib import Path
 
 
-def compute_diff(data):
-    diff = np.diff(np.array(data), axis=0)
-    return diff.tolist()
-
-
 def indicators(data):
     """
     :param data: data
@@ -74,6 +69,7 @@ def split_with_indicators(config, data, chps, n_step):
             seq_wma = subwma[i:end_seq].squeeze()
             seq_ppo = subppo[i:end_seq].squeeze()
             input_data = np.stack([seq_x, seq_diff, seq_cmo, seq_roc, seq_rsi, seq_wma, seq_ppo])
+            # input_data = np.stack([seq_diff, seq_cmo, seq_roc, seq_rsi, seq_wma, seq_ppo])
 
             label = 0.  # Target value lower or equal than input sequence
             if y > statistics.mean(seq_x.flatten()):
@@ -178,8 +174,6 @@ def eval_bayesian(chps, raw_data):
     """
     plt.figure(figsize=(10, 6))
     plt.plot(raw_data)
-    plt.xlabel("Timestep")
-    plt.ylabel("Price")
     plt.grid(True)
     for i in chps:
         plt.axvline(i, color="red")

@@ -22,17 +22,21 @@ class RegressionMLP(nn.Module):
 
 
 class ClassficationMLP(nn.Module):
-    def __init__(self, input_size):
+    def __init__(self, input_size, dropout):
         super(ClassficationMLP, self).__init__()
         self.input_size = input_size
+        self.dropout = dropout
         self.net = nn.Sequential(
-            nn.Linear(input_size, 80),
-            nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(80, 40),
-            nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(40, 2)
+            nn.Linear(input_size, 100),
+            nn.Dropout(dropout),
+            nn.LeakyReLU(),
+            nn.Linear(100, 50),
+            nn.Dropout(dropout),
+            nn.LeakyReLU(),
+            nn.Linear(50, 25),
+            nn.Dropout(dropout),
+            nn.LeakyReLU(),
+            nn.Linear(25, 2)
         )
 
     def forward(self, x):
@@ -57,30 +61,22 @@ class SimpleCNN(nn.Module):
         super(SimpleCNN, self).__init__()
         self.input_size = input_size
         self.cnn = nn.Sequential(
-            nn.Conv1d(in_channels=input_size, out_channels=32, kernel_size=(1,)),
-            # nn.Dropout(0.5),
-            nn.ReLU(),
-            nn.Conv1d(in_channels=32, out_channels=32, kernel_size=(1,)),
-            # nn.Dropout(0.5),
-            nn.ReLU(),
-            nn.Conv1d(in_channels=32, out_channels=64, kernel_size=(1,)),
-            # nn.Dropout(0.5),
-            nn.ReLU(),
-            nn.Conv1d(in_channels=64, out_channels=64, kernel_size=(1,)),
-            # nn.Dropout(0.5),
-            nn.ReLU(),
-            nn.Conv1d(in_channels=64, out_channels=64, kernel_size=(1,)),
-            # nn.Dropout(0.5),
-            nn.ReLU(),
+            nn.Conv1d(in_channels=input_size, out_channels=16, kernel_size=(1,), stride=(1,)),
+            nn.LeakyReLU(),
+            nn.Conv1d(in_channels=16, out_channels=32, kernel_size=(3,), stride=(1,)),
+            nn.LeakyReLU(),
+            nn.Conv1d(in_channels=32, out_channels=32, kernel_size=(3,), stride=(3,)),
+            nn.LeakyReLU(),
         )
         self.fc = nn.Sequential(
-            nn.Linear(64*30,32),
+            nn.Flatten(),
+            nn.Linear(9*32, 32),
             nn.Linear(32, 2),
         )
 
     def forward(self, x):
         x = self.cnn(x)
-        x = x.view(x.shape[0], -1)
+        # x = x.view(x.shape[0], -1)
         x = self.fc(x)
         return x
 
