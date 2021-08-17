@@ -6,7 +6,7 @@ import time
 
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 from utils.models import RegressionMLP, ClassficationMLP, SimpleCNN
-from utils.training import train_er, train_online, train_ewc, train_si, train_dark_er
+from utils.training import train_er, train_online, train_ewc, train_si, train_dark_er, train_gem
 from utils.utils import read_csv, split_data, split_with_indicators, eval_bayesian, check_changepoints, \
     timeperiod
 from torchsummary import summary
@@ -56,6 +56,8 @@ parser.add_argument('--ewc', action='store_true',
                     help="Continual Learning with EWC")
 parser.add_argument('--si', action='store_true',
                     help="Continual Learning with SI")
+parser.add_argument('--gem', action='store_true',
+                    help="Continual Learning with GEM")
 # EWC Parameters
 parser.add_argument('--gamma', type=float, default=1.,
                     help="gamma value for EWC")
@@ -71,6 +73,9 @@ parser.add_argument('--buffer_size', type=int, default=500,
                     help="Size of the buffer for ER/DER")
 parser.add_argument('--alpha', type=float, default=0.1,
                     help="penalty weight for DER")
+# GEM Parameters
+parser.add_argument('--gem_gamma', type=float, default=0.1,
+                    help="gamma value for GEM")
 
 
 def main(config):
@@ -154,7 +159,7 @@ def main(config):
         train_er(train_set=train_data, test_set=test_data, model=model, loss=loss,
                  optimizer=optimizer, device=device, config=config, suffix=suffix)
 
-    # Continual learning with ER
+    # Continual learning with Dark ER
     if config['der']:
         initial_model = torch.load('checkpoints/model_scratch.pt')
         model.load_state_dict(initial_model['model_state_dict'])
@@ -177,6 +182,14 @@ def main(config):
         optimizer.load_state_dict(initial_model['optimizer_state_dict'])
         train_si(train_set=train_data, test_set=test_data, model=model, loss=loss,
                  optimizer=optimizer, device=device, config=config, suffix=suffix)
+
+    # Continual learning with GEM
+    if config['gem']:
+        initial_model = torch.load('checkpoints/model_scratch.pt')
+        model.load_state_dict(initial_model['model_state_dict'])
+        optimizer.load_state_dict(initial_model['optimizer_state_dict'])
+        train_gem(train_set=train_data, test_set=test_data, model=model, loss=loss,
+                  optimizer=optimizer, device=device, config=config, suffix=suffix)
 
     end = time.time()
     print("\nTime elapsed: ", end - start, "s")
