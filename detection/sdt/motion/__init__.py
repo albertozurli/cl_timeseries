@@ -48,9 +48,9 @@ D      0.065576
 eps    0.020269
 Name: ensemble, dtype: float64
 
-An MSD plot can be created using
+An MSD plots can be created using
 
->>> bm.plot()
+>>> bm.plots()
 
 To calculate MSDs and fit results for each particle individually, set
 ``ensemble=False``:
@@ -117,7 +117,7 @@ Name: ensemble, dtype: float64
 
 This can also be plotted:
 
->>> bm3.plot()
+>>> bm3.plots()
 
 Analysis can be carried out for each track individually by setting
 ``ensemble=False``.

@@ -44,7 +44,7 @@ Detecting codiffusing particles works similar using
 >>> trc2 = sdt.io.load("tracking2.h5")
 >>> codiff = find_codiffusion(trc1, trc2)
 
-A single codiffusing pair can be plot with help of :py:func:`plot_codiffusion`
+A single codiffusing pair can be plots with help of :py:func:`plot_codiffusion`
 using the result of :py:func:`find_codiffusion`:
 
 >>> plot_codiffusion(codiff, particle=0)

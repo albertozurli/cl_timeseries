@@ -42,7 +42,9 @@ parser.add_argument('--evaluate', action='store_true',
 parser.add_argument('--cnn', action='store_true',
                     help="Convolutional Network")
 parser.add_argument('--dropout', type=float, default=0.5,
-                    help="Probabilty for dropout")
+                    help="Probabilty for dropout in MLP")
+parser.add_argument('--l1_lambda', type=float, default=0.001,
+                    help="Regularization param in L1 Norm (CNN only)")
 # Methods
 parser.add_argument('--online', action='store_true',
                     help="Online Learning")

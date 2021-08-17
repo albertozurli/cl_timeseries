@@ -54,3 +54,5 @@ typing-extensions
 urllib3
 Werkzeug
 wincertstore
+torchsummary
+setuptools

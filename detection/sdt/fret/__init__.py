@@ -60,7 +60,7 @@ Accept only localizations that lie in pixels where the boolean mask is `True`:
 Filtered data can be accessed via the :py:attr:`SmFRETAnalyzer.tracks`
 attribute.
 
-Draw a scatter plot of FRET efficiency vs. stoichiometry:
+Draw a scatter plots of FRET efficiency vs. stoichiometry:
 
 >>> smfret_scatter({"data1": filt.tracks}, ("fret", "eff), ("fret", "stoi"))
 

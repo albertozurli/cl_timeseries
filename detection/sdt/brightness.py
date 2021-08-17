@@ -40,7 +40,7 @@ by means of the :py:class:`Distribution` class:
 314.1592653589793
 >>> bdist.std()
 31.41592653589793
->>> bdist.plot()
+>>> bdist.plots()
 
 
 Programming reference

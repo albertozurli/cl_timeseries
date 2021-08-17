@@ -131,16 +131,15 @@ def train_online(train_set, test_set, model, loss, optimizer, device, config, su
                 optimizer.zero_grad()
 
                 x = x.to(device)
-                output = model(x)
                 y = y.to(device)
+                output = model(x)
+                s_loss = loss(output, y.long())
 
-                lambda1 = 0.0025
-                l1_reg = 0
-                for param in model.parameters():
-                    l1_reg += torch.norm(param, 1)
-
-                s_loss = loss(output, y.long()) + lambda1 * l1_reg
-                # s_loss = loss(output, y.long())
+                if config['cnn']:
+                    l1_reg = 0
+                    for param in model.parameters():
+                        l1_reg += torch.norm(param, 1)
+                    s_loss += config['l1_lambda'] * l1_reg
 
                 _, pred = torch.max(output.data, 1)
                 acc = binary_accuracy(pred.float(), y)
@@ -222,8 +221,6 @@ def train_dark_er(train_set, test_set, model, loss, optimizer, device, config, s
     buffer = Buffer(config['buffer_size'], device)
     accuracy = []
 
-    loss2 = nn.MSELoss()
-
     # N SummaryWriter for N domains
     if config['evaluate']:
         text_file = open("dark_er_" + suffix + ".txt", "a")
@@ -264,28 +261,22 @@ def train_dark_er(train_set, test_set, model, loss, optimizer, device, config, s
                     buf_input = torch.stack(buf_input)
                     buf_logit = torch.stack(buf_logit)
                     buf_output = model(buf_input)
-                    # add_loss = F.mse_loss(buf_output, buf_logit)
-                    add_loss = loss2(buf_output, buf_logit)
+                    add_loss = F.mse_loss(buf_output, buf_logit)
                     final_loss = first_loss + config['alpha'] * add_loss
                 else:
                     final_loss = first_loss
 
-                # lambda1 = 0.01
-                # l1_reg = 0
-                # # l1_reg = l1_reg.to(device)
-                # for param in model.get_params():
-                #     l1_reg += torch.norm(param, 1)
-                # s_loss += lambda1 * l1_reg
+                if config['cnn']:
+                    l1_reg = 0
+                    for param in model.parameters():
+                        l1_reg += torch.norm(param, 1)
+                    final_loss += config['l1_lambda'] * l1_reg
 
                 epoch_loss.append(final_loss.item())
                 epoch_acc.append(acc.item())
 
-                first_loss.backward()
-                if not buffer.is_empty():
-                    add_loss.backward(retain_graph=True)
+                final_loss.backward(retain_graph=True)
                 optimizer.step()
-
-
 
                 if epoch == 0:
                     buffer.add_data(examples=x.to(device), task=index, labels=output.to(device))
@@ -415,12 +406,11 @@ def train_er(train_set, test_set, model, loss, optimizer, device, config, suffix
                 output = model(inputs)
                 s_loss = loss(output, labels.long())
 
-                # lambda1 = 0.01
-                # l1_reg = 0
-                # # l1_reg = l1_reg.to(device)
-                # for param in model.get_params():
-                #     l1_reg += torch.norm(param, 1)
-                # s_loss += lambda1 * l1_reg
+                if config['cnn']:
+                    l1_reg = 0
+                    for param in model.parameters():
+                        l1_reg += torch.norm(param, 1)
+                    s_loss += config['l1_lambda'] * l1_reg
 
                 _, pred = torch.max(output.data, 1)
                 acc = binary_accuracy(pred.float(), labels)
@@ -545,12 +535,11 @@ def train_ewc(model, loss, device, optimizer, train_set, test_set, suffix, confi
                 penalty = ewc.penalty()
                 s_loss = loss(output, y.long()) + (config['e_lambda'] * penalty)
 
-                # lambda1 = 0.01
-                # l1_reg = 0
-                # # l1_reg = l1_reg.to(device)
-                # for param in model.get_params():
-                #     l1_reg += torch.norm(param, 1)
-                # s_loss += lambda1 * l1_reg
+                if config['cnn']:
+                    l1_reg = 0
+                    for param in model.parameters():
+                        l1_reg += torch.norm(param, 1)
+                    s_loss += config['l1_lambda'] * l1_reg
 
                 assert not torch.isnan(s_loss)
 
@@ -672,12 +661,11 @@ def train_si(model, loss, device, optimizer, train_set, test_set, suffix, config
                 penalty = si.penalty()
                 s_loss = loss(output, y.long()) + config['c'] * penalty
 
-                # lambda1 = 0.01
-                # l1_reg = 0
-                # # l1_reg = l1_reg.to(device)
-                # for param in model.get_params():
-                #     l1_reg += torch.norm(param, 1)
-                # s_loss += lambda1 * l1_reg
+                if config['cnn']:
+                    l1_reg = 0
+                    for param in model.parameters():
+                        l1_reg += torch.norm(param, 1)
+                    s_loss += config['l1_lambda'] * l1_reg
 
                 _, pred = torch.max(output.data, 1)
                 acc = binary_accuracy(pred.float(), y)
