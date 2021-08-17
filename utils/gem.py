@@ -75,7 +75,7 @@ class GEM:
         num_samples = self.config['buffer_size'] // len(dataset)
 
         loader = DataLoader(dataset[(self.current_task - 1)], batch_size=num_samples, shuffle=False)
-        y,x = next(iter(loader))[1:]
+        x,y = next(iter(loader))
         self.buffer.add_data(examples=x.to(self.device),
                              task=torch.ones(num_samples,dtype=torch.long).to(self.device)*(self.current_task -1),
                              labels=y.to(self.device))

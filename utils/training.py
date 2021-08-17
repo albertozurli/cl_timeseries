@@ -11,7 +11,7 @@ from utils.buffer import Buffer
 from utils.ewc import EWC
 from utils.si import SI
 from utils.gem import GEM, save_gradient, overwrite_gradient, project2cone2
-from utils.utils import binary_accuracy
+from utils.utils import binary_accuracy, unique
 from torch.utils.tensorboard import SummaryWriter
 from utils.metrics import backward_transfer, forward_transfer, forgetting
 
@@ -784,14 +784,14 @@ def train_gem(model, loss, device, optimizer, train_set, test_set, suffix, confi
                     buf_inputs, buf_labels, buf_task_labels = gem.buffer.get_data(config['buffer_size'])
 
                     # Gradient buffer
-                    for tt in buf_task_labels.unique():
+                    for tt in unique(buf_task_labels):
                         gem.optimizer.zero_grad()
                         cur_task_inputs = buf_inputs[buf_task_labels == tt]
                         cur_task_labels = buf_labels[buf_task_labels == tt]
                         cur_task_outputs = gem.model(cur_task_inputs)
-                        buffer_loss = gem.loss(cur_task_outputs, cur_task_labels)
-                        buffer_loss.backward()
-                        save_gradient(gem.model.parameters(), gem.grads_cs[tt], gem.grad_dims)
+                        # buffer_loss = gem.loss(cur_task_outputs, cur_task_labels)
+                        # buffer_loss.backward()
+                        # save_gradient(gem.model.parameters(), gem.grads_cs[tt], gem.grad_dims)
 
                 # Gradient current task
                 gem.optimizer.zero_grad()
@@ -861,7 +861,7 @@ def train_gem(model, loss, device, optimizer, train_set, test_set, suffix, confi
                 avg = sum(tmp_list) / len(tmp_list)
                 test_writer.add_scalar('Test/mean_accuracy', avg, epoch + (config['epochs'] * index))
 
-        gem.end_task(data_set)
+        gem.end_task(train_set)
 
         # Test at the end of domain
         evaluation, error, mean_evaluation, mean_error = evaluate_past(model, index, test_set, loss, device)

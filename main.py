@@ -59,14 +59,14 @@ parser.add_argument('--si', action='store_true',
 parser.add_argument('--gem', action='store_true',
                     help="Continual Learning with GEM")
 # EWC Parameters
-parser.add_argument('--gamma', type=float, default=1.,
+parser.add_argument('--gamma', type=float, default=0.7,
                     help="gamma value for EWC")
-parser.add_argument('--e_lambda', type=float, default=17.5,
+parser.add_argument('--e_lambda', type=float, default=100,
                     help="lambda value for EWC")
 # SI Parameters
-parser.add_argument('--xi', type=float, default=0.9,
+parser.add_argument('--xi', type=float, default=1,
                     help="xi value for SI")
-parser.add_argument('--c', type=float, default=0.1,
+parser.add_argument('--c', type=float, default=0.5,
                     help="c value for SI")
 # ER/DER Parameters
 parser.add_argument('--buffer_size', type=int, default=500,

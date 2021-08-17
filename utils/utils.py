@@ -32,6 +32,14 @@ def timeperiod(filename):
         return 0
 
 
+def unique(numbers):
+    output = []
+    for x in numbers:
+        if x not in output:
+            output.append(x)
+    return output
+
+
 def split_with_indicators(config, data, chps, n_step):
     """
     :param config: config
