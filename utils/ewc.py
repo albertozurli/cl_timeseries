@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
 
-class Ewc:
+class EWC:
     def __init__(self, model, loss, config, optimizer, device):
         self.logsoft = nn.LogSoftmax(dim=1)
         self.model = model

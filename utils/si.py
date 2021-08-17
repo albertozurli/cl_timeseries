@@ -1,7 +1,7 @@
 import torch
 
 
-class Si:
+class SI:
     def __init__(self, model, loss, config, optimizer, device):
         self.model = model
         self.device = device

@@ -56,3 +56,4 @@ Werkzeug
 wincertstore
 torchsummary
 setuptools
+quadprog

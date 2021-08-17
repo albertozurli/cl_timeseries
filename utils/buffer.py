@@ -66,8 +66,9 @@ class Buffer:
 
         ret_examples = [self.examples[idx] for idx in choice]
         ret_labels = [self.labels[idx] for idx in choice]
+        ret_task_labels = [self.task_number[idx] for idx in choice]
 
-        return ret_examples, ret_labels
+        return ret_examples, ret_labels, ret_task_labels
 
     def is_empty(self):
         """"
@@ -89,6 +90,8 @@ class Buffer:
             if hasattr(self, attr_str):
                 attr = getattr(self, attr_str)
                 ret_tuple += (attr,)
+
+        return ret_tuple
 
     def clear(self):
         """"
