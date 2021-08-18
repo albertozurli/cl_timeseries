@@ -35,7 +35,7 @@ class Buffer:
         self.labels = [None] * self.buffer_size
         self.task_number = [None] * self.buffer_size
 
-    def add_data(self, examples, task, labels=None):
+    def add_data(self, examples, task=None, labels=None):
         """
         Adds the data to the memory buffer according to the reservoir strategy.
         :param examples: tensor containing the images

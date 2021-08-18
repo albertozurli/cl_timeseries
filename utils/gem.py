@@ -6,10 +6,10 @@ from torch.utils.data import DataLoader
 from utils.buffer import Buffer
 
 
-def save_gradient(parameters, gradient, gradient_dims):
+def store_gradient(parameters, gradient, gradient_dims):
     gradient.fill_(0.0)
     count = 0
-    for p in parameters():
+    for p in parameters:
         if p.grad is not None:
             begin = 0 if count == 0 else sum(gradient_dims[:count])
             end = np.sum(gradient_dims[:count + 1])
@@ -19,7 +19,7 @@ def save_gradient(parameters, gradient, gradient_dims):
 
 def overwrite_gradient(parameters, new, gradient_dims):
     count = 0
-    for p in parameters():
+    for p in parameters:
         if p.grad is not None:
             begin = 0 if count == 0 else sum(gradient_dims[:count])
             end = np.sum(gradient_dims[:count + 1])
@@ -51,14 +51,14 @@ def project2cone2(gradient, memories, margin=0.5, eps=1e-3):
 
 
 class GEM:
-    def __init__(self,config,device,model,loss,optimizer):
+    def __init__(self, config, device, model, loss, optimizer):
         self.current_task = 0
         self.config = config
         self.device = device
         self.model = model
         self.loss = loss
         self.optimizer = optimizer
-        self.buffer = Buffer(self.config['buffer_size'],self.device)
+        self.buffer = Buffer(self.config['buffer_size'], self.device)
 
         self.grad_dims = []
         for pp in self.model.parameters():
@@ -67,19 +67,15 @@ class GEM:
         self.grads_cs = []
         self.grads_da = torch.zeros(np.sum(self.grad_dims)).to(self.device)
 
-    def end_task(self,dataset):
-        self.current_task +=1
+    def end_task(self, dataset):
+        self.current_task += 1
         self.grads_cs.append(torch.zeros(np.sum(self.grad_dims)).to(self.device))
 
         # Add data to the buffer
         num_samples = self.config['buffer_size'] // len(dataset)
 
         loader = DataLoader(dataset[(self.current_task - 1)], batch_size=num_samples, shuffle=False)
-        x,y = next(iter(loader))
+        x, y = next(iter(loader))
         self.buffer.add_data(examples=x.to(self.device),
-                             task=torch.ones(num_samples,dtype=torch.long).to(self.device)*(self.current_task -1),
+                             task=torch.ones(1, dtype=torch.long).to(self.device) * (self.current_task - 1),
                              labels=y.to(self.device))
-
-
-
-
