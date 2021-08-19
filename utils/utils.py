@@ -79,14 +79,14 @@ def split_with_indicators(config, data, chps, n_step):
             input_data = np.stack([seq_x, seq_diff, seq_cmo, seq_roc, seq_rsi, seq_wma, seq_ppo])
             # input_data = np.stack([seq_diff, seq_cmo, seq_roc, seq_rsi, seq_wma, seq_ppo])
 
-            label = 0.  # Target value lower or equal than input sequence
+            label = 0  # Target value lower or equal than input sequence
             if y > statistics.mean(seq_x.flatten()):
-                label = 1.  # Target value greater than input sequence
+                label = 1  # Target value greater than input sequence
 
             input_data = torch.Tensor(input_data)
             if not config["cnn"]:
                 input_data = torch.flatten(input_data)
-            label = torch.Tensor(np.array(label))
+            label = torch.LongTensor([label])
             if not torch.isnan(torch.sum(input_data)):
                 seq.append((input_data, label))
             i += 1
@@ -167,10 +167,10 @@ def binary_accuracy(y_pred, y_true):
     :param y_true: true label
     :return: accuracy
     """
-    y_pred_tag = torch.round(y_pred)
-    result_sum = (y_pred_tag == y_true).sum().float()
+    # y_pred_tag = torch.round(y_pred)
+    result_sum = (y_pred == y_true).sum().float()
     acc = result_sum / y_true.shape[0]
-    acc = torch.round(acc * 100)
+    # acc = torch.round(acc)
     return acc
 
 

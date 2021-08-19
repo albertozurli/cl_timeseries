@@ -24,10 +24,10 @@ class AGEM:
         self.grad_xy = torch.Tensor(np.sum(self.grad_dims)).to(self.device)
         self.grad_er = torch.Tensor(np.sum(self.grad_dims)).to(self.device)
 
-    def end_task(self,dataset):
+    def end_task(self, dataset, index):
         # Add data to the buffer
         num_samples = self.config['buffer_size'] // len(dataset)
 
-        loader = DataLoader(dataset, batch_size=num_samples, shuffle=False)
+        loader = DataLoader(dataset[index], batch_size=num_samples, shuffle=False)
         x, y = next(iter(loader))
         self.buffer.add_data(examples=x.to(self.device), labels=y.to(self.device))

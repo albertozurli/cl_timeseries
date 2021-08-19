@@ -32,7 +32,7 @@ class EWC:
             for ex, lab in zip(inputs, labels):
                 self.optimizer.zero_grad()
                 output = self.model(ex)
-                loss = - F.cross_entropy(output.unsqueeze(0), lab.unsqueeze(0).long(), reduction='none')
+                loss = - F.cross_entropy(output.unsqueeze(0), lab, reduction='none')
                 exp_cond_prob = torch.mean(torch.exp(loss.detach().clone()))
                 loss.backward()
                 fish += exp_cond_prob * self.model.get_grads() ** 2

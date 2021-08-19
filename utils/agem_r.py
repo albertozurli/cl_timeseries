@@ -1,6 +1,5 @@
 import numpy as np
 import torch
-from torch.utils.data import DataLoader
 from utils.buffer import Buffer
 
 
@@ -18,4 +17,3 @@ class AGEM_R:
             self.grad_dims.append(p.data.numel())
         self.grad_xy = torch.Tensor(np.sum(self.grad_dims)).to(self.device)
         self.grad_er = torch.Tensor(np.sum(self.grad_dims)).to(self.device)
-

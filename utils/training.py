@@ -33,7 +33,7 @@ def test_epoch(model, test_loader, loss, device):
             y = y.to(device)
 
             output = model(x)
-            s_loss = loss(output, y.long())
+            s_loss = loss(output, y.squeeze(0))
             _, pred = torch.max(output.data, 1)
             acc = binary_accuracy(pred.float(), y)
             test_acc.append(acc.item())
@@ -60,12 +60,12 @@ def test(model, loss, test_loader, device):
 
             output = model(x)
             _, pred = torch.max(output.data, 1)
-            s_loss = loss(output, y.long())
+            s_loss = loss(output, y.squeeze(0))
             acc = binary_accuracy(pred.float(), y)
             test_acc.append(acc.item())
             test_loss.append(s_loss.item())
 
-    print(f"Error: {statistics.mean(test_loss):.5f} | Acc: {statistics.mean(test_acc):.2f}%")
+    print(f"Error: {statistics.mean(test_loss):.5f} | Acc: {statistics.mean(test_acc)*100:.2f}%")
     return test_acc, test_loss
 
 
@@ -136,7 +136,7 @@ def train_online(train_set, test_set, model, loss, optimizer, device, config, su
                 x = x.to(device)
                 y = y.to(device)
                 output = model(x)
-                s_loss = loss(output, y.long())
+                s_loss = loss(output,y.squeeze(1))
 
                 if config['cnn']:
                     l1_reg = 0
@@ -169,34 +169,34 @@ def train_online(train_set, test_set, model, loss, optimizer, device, config, su
                 for past in range(index):
                     test_loader = DataLoader(test_set[past], batch_size=1, shuffle=False)
                     tmp, _ = test_epoch(model, test_loader, loss, device)
-                    writer_list[past].add_scalar('Test/domain_accuracy', statistics.mean(tmp),
+                    writer_list[past].add_scalar('Test/domain_accuracy', statistics.mean(tmp)*100,
                                                  i + (config['epochs'] * index))
-                    test_list[past].append(statistics.mean(tmp))
+                    test_list[past].append(statistics.mean(tmp)*100)
                     for t in tmp:
                         tmp_list.append(t)
                 # Current task
                 test_loader = DataLoader(test_set[index], batch_size=1, shuffle=False)
                 tmp, loss_task = test_epoch(model, test_loader, loss, device)
-                writer_list[index].add_scalar('Test/domain_accuracy', statistics.mean(tmp),
+                writer_list[index].add_scalar('Test/domain_accuracy', statistics.mean(tmp)*100,
                                               i + (config['epochs'] * index))
                 writer_list[index].add_scalar('Test/domain_loss', statistics.mean(loss_task),
                                               i + (config['epochs'] * index))
-                test_list[index].append(statistics.mean(tmp))
+                test_list[index].append(statistics.mean(tmp)*100)
                 for t in tmp:
                     tmp_list.append(t)
 
-                avg = sum(tmp_list) / len(tmp_list)
+                avg = (sum(tmp_list) / len(tmp_list))*100
                 test_writer.add_scalar('Test/mean_accuracy', avg, i + (config['epochs'] * index))
 
         # Test at the end of domain
         evaluation, error, mean_evaluation, mean_error = evaluate_past(model, index, test_set, loss, device)
-        print(f"Mean Error: {statistics.mean(error):.5f} | Mean Acc: {statistics.mean(evaluation):.2f}%")
+        print(f"Mean Error: {statistics.mean(error):.5f} | Mean Acc: {statistics.mean(evaluation)*100:.2f}%")
         if config['evaluate']:
             text_file.write(f"---Evaluation after domain {index}--- \n")
             for i, a in enumerate(mean_evaluation):
-                text_file.write(f"Domain {i} | Error: {mean_error[i]:.5f} | Acc: {a:.2f}%\n")
+                text_file.write(f"Domain {i} | Error: {mean_error[i]:.5f} | Acc: {a*100:.2f}%\n")
             text_file.write(f"Mean Error: {statistics.mean(error):.5f} | "
-                            f"Mean Acc: {statistics.mean(evaluation):.2f}% \n")
+                            f"Mean Acc: {statistics.mean(evaluation)*100:.2f}% \n")
 
         torch.save(model.state_dict(), f'checkpoints/online/model_d{index}.pt')
 
@@ -253,16 +253,14 @@ def train_dark_er(train_set, test_set, model, loss, optimizer, device, config, s
                 labels = y.to(device)
                 output = model(inputs)
 
-                first_loss = loss(output, labels.long())
+                first_loss = loss(output, labels.squeeze(1))
                 _, pred = torch.max(output.data, 1)
                 acc = binary_accuracy(pred.float(), labels)
 
                 if not buffer.is_empty():
-                    # Strategy 50/50
-                    # From batch of 64 (dataloader) to 64 + 64 (dataloader + replay)
                     buf_input, buf_logit, _ = buffer.get_data(config['batch_size'])
                     buf_input = torch.stack(buf_input)
-                    buf_logit = torch.stack(buf_logit)
+                    buf_logit = torch.stack(buf_logit).requires_grad(True)
                     buf_output = model(buf_input)
                     add_loss = F.mse_loss(buf_output, buf_logit)
                     final_loss = first_loss + config['alpha'] * add_loss
@@ -278,7 +276,7 @@ def train_dark_er(train_set, test_set, model, loss, optimizer, device, config, s
                 epoch_loss.append(final_loss.item())
                 epoch_acc.append(acc.item())
 
-                final_loss.backward(retain_graph=True)
+                final_loss.backward()
                 optimizer.step()
 
                 if epoch == 0:
@@ -407,7 +405,7 @@ def train_er(train_set, test_set, model, loss, optimizer, device, config, suffix
                     labels = torch.cat((labels, torch.stack(buf_label)))
 
                 output = model(inputs)
-                s_loss = loss(output, labels.long())
+                s_loss = loss(output, labels.squeeze(1))
 
                 if config['cnn']:
                     l1_reg = 0
@@ -443,35 +441,35 @@ def train_er(train_set, test_set, model, loss, optimizer, device, config, suffix
                 for past in range(index):
                     test_loader = DataLoader(test_set[past], batch_size=1, shuffle=False)
                     tmp, _ = test_epoch(model, test_loader, loss, device)
-                    writer_list[past].add_scalar('Test/domain_accuracy', statistics.mean(tmp),
+                    writer_list[past].add_scalar('Test/domain_accuracy', statistics.mean(tmp)*100,
                                                  epoch + (config['epochs'] * index))
-                    test_list[past].append(statistics.mean(tmp))
+                    test_list[past].append(statistics.mean(tmp)*100)
                     for t in tmp:
                         tmp_list.append(t)
                 # Current task
                 test_loader = DataLoader(test_set[index], batch_size=1, shuffle=False)
                 tmp, loss_task = test_epoch(model, test_loader, loss, device)
-                writer_list[index].add_scalar('Test/domain_accuracy', statistics.mean(tmp),
+                writer_list[index].add_scalar('Test/domain_accuracy', statistics.mean(tmp)*100,
                                               epoch + (config['epochs'] * index))
                 writer_list[index].add_scalar('Test/domain_loss', statistics.mean(loss_task),
                                               epoch + (config['epochs'] * index))
-                test_list[index].append(statistics.mean(tmp))
+                test_list[index].append(statistics.mean(tmp)*100)
                 for t in tmp:
                     tmp_list.append(t)
 
-                avg = sum(tmp_list) / len(tmp_list)
+                avg = sum(tmp_list) / len(tmp_list)*100
                 test_writer.add_scalar('Test/mean_accuracy', avg, epoch + (config['epochs'] * index))
 
         # Test at the end of domain
         evaluation, error, mean_evaluation, mean_error = evaluate_past(model, index, test_set, loss, device)
-        print(f"Mean Error: {statistics.mean(error):.5f} | Mean Acc: {statistics.mean(evaluation):.2f}%")
+        print(f"Mean Error: {statistics.mean(error):.5f} | Mean Acc: {statistics.mean(evaluation)*100:.2f}%")
         accuracy.append(mean_evaluation)
         if config['evaluate']:
             text_file.write(f"---Evaluation after domain {index}--- \n")
             for i, a in enumerate(mean_evaluation):
-                text_file.write(f"Domain {i} | Error: {mean_error[i]:.5f} | Acc: {a:.2f}%\n")
-            text_file.write(f"Mean Error: {statistics.mean(error):.5f} | "
-                            f"Mean Acc: {statistics.mean(evaluation):.2f}% \n")
+                text_file.write(f"Domain {i} | Error: {mean_error[i]:.5f} | Acc: {a*100:.2f}%\n")
+                text_file.write(f"Mean Error: {statistics.mean(error):.5f} | "
+                            f"Mean Acc: {statistics.mean(evaluation)*100:.2f}% \n")
 
         if index != len(train_set) - 1:
             accuracy[index].append(evaluate_next(model, index, test_set, loss, device))
@@ -536,7 +534,7 @@ def train_ewc(model, loss, device, optimizer, train_set, test_set, suffix, confi
                 y = y.to(device)
 
                 penalty = ewc.penalty()
-                s_loss = ewc.loss(output, y.long()) + (config['e_lambda'] * penalty)
+                s_loss = ewc.loss(output, y.squeeze(1)) + (config['e_lambda'] * penalty)
 
                 if config['cnn']:
                     l1_reg = 0
@@ -570,37 +568,37 @@ def train_ewc(model, loss, device, optimizer, train_set, test_set, suffix, confi
                 for past in range(index):
                     test_loader = DataLoader(test_set[past], batch_size=1, shuffle=False)
                     tmp, _ = test_epoch(ewc.model, test_loader, ewc.loss, device)
-                    writer_list[past].add_scalar('Test/domain_accuracy', statistics.mean(tmp),
+                    writer_list[past].add_scalar('Test/domain_accuracy', statistics.mean(tmp)*100,
                                                  epoch + (config['epochs'] * index))
-                    test_list[past].append(statistics.mean(tmp))
+                    test_list[past].append(statistics.mean(tmp)*100)
                     for t in tmp:
                         tmp_list.append(t)
                 # Current task
                 test_loader = DataLoader(test_set[index], batch_size=1, shuffle=False)
                 tmp, loss_task = test_epoch(ewc.model, test_loader, ewc.loss, device)
-                writer_list[index].add_scalar('Test/domain_accuracy', statistics.mean(tmp),
+                writer_list[index].add_scalar('Test/domain_accuracy', statistics.mean(tmp)*100,
                                               epoch + (config['epochs'] * index))
                 writer_list[index].add_scalar('Test/domain_loss', statistics.mean(loss_task),
                                               epoch + (config['epochs'] * index))
-                test_list[index].append(statistics.mean(tmp))
+                test_list[index].append(statistics.mean(tmp)*100)
                 for t in tmp:
                     tmp_list.append(t)
 
-                avg = sum(tmp_list) / len(tmp_list)
+                avg = sum(tmp_list) / len(tmp_list)*100
                 test_writer.add_scalar('Test/mean_accuracy', avg, epoch + (config['epochs'] * index))
 
         ewc.end_task(data_set)
 
         # Test at the end of domain
         evaluation, error, mean_evaluation, mean_error = evaluate_past(ewc.model, index, test_set, ewc.loss, device)
-        print(f"Mean Error: {statistics.mean(error):.5f} | Mean Acc: {statistics.mean(evaluation):.2f}%")
+        print(f"Mean Error: {statistics.mean(error):.5f} | Mean Acc: {statistics.mean(evaluation)*100:.2f}%")
         accuracy.append(mean_evaluation)
         if config['evaluate']:
             text_file.write(f"---Evaluation after domain {index}--- \n")
             for i, a in enumerate(mean_evaluation):
-                text_file.write(f"Domain {i} | Error: {mean_error[i]:.5f} | Acc: {a:.2f}%\n")
+                text_file.write(f"Domain {i} | Error: {mean_error[i]:.5f} | Acc: {a*100:.2f}%\n")
             text_file.write(f"Mean Error: {statistics.mean(error):.5f} | "
-                            f"Mean Acc: {statistics.mean(evaluation):.2f}% \n")
+                            f"Mean Acc: {statistics.mean(evaluation)*100:.2f}% \n")
 
         if index != len(train_set) - 1:
             accuracy[index].append(evaluate_next(ewc.model, index, test_set, ewc.loss, device))
@@ -662,7 +660,7 @@ def train_si(model, loss, device, optimizer, train_set, test_set, suffix, config
                 y = y.to(device)
 
                 penalty = si.penalty()
-                s_loss = si.loss(output, y.long()) + config['c'] * penalty
+                s_loss = si.loss(output, y.squeeze(1)) + config['c'] * penalty
 
                 if config['cnn']:
                     l1_reg = 0
@@ -696,37 +694,37 @@ def train_si(model, loss, device, optimizer, train_set, test_set, suffix, config
                 for past in range(index):
                     test_loader = DataLoader(test_set[past], batch_size=1, shuffle=False)
                     tmp, _ = test_epoch(si.model, test_loader, si.loss, device)
-                    writer_list[past].add_scalar('Test/domain_accuracy', statistics.mean(tmp),
+                    writer_list[past].add_scalar('Test/domain_accuracy', statistics.mean(tmp)*100,
                                                  epoch + (config['epochs'] * index))
-                    test_list[past].append(statistics.mean(tmp))
+                    test_list[past].append(statistics.mean(tmp)*100)
                     for t in tmp:
                         tmp_list.append(t)
                 # Current task
                 test_loader = DataLoader(test_set[index], batch_size=1, shuffle=False)
                 tmp, loss_task = test_epoch(si.model, test_loader, si.loss, device)
-                writer_list[index].add_scalar('Test/domain_accuracy', statistics.mean(tmp),
+                writer_list[index].add_scalar('Test/domain_accuracy', statistics.mean(tmp)*100,
                                               epoch + (config['epochs'] * index))
                 writer_list[index].add_scalar('Test/domain_loss', statistics.mean(loss_task),
                                               epoch + (config['epochs'] * index))
-                test_list[index].append(statistics.mean(tmp))
+                test_list[index].append(statistics.mean(tmp)*100)
                 for t in tmp:
                     tmp_list.append(t)
 
-                avg = sum(tmp_list) / len(tmp_list)
+                avg = sum(tmp_list) / len(tmp_list)*100
                 test_writer.add_scalar('Test/mean_accuracy', avg, epoch + (config['epochs'] * index))
 
         si.end_task()
 
         # Test at the end of domain
         evaluation, error, mean_evaluation, mean_error = evaluate_past(si.model, index, test_set, si.loss, device)
-        print(f"Mean Error: {statistics.mean(error):.5f} | Mean Acc: {statistics.mean(evaluation):.2f}%")
+        print(f"Mean Error: {statistics.mean(error):.5f} | Mean Acc: {statistics.mean(evaluation)*100:.2f}%")
         accuracy.append(mean_evaluation)
         if config['evaluate']:
             text_file.write(f"---Evaluation after domain {index}--- \n")
             for i, a in enumerate(mean_evaluation):
-                text_file.write(f"Domain {i} | Error: {mean_error[i]:.5f} | Acc: {a:.2f}%\n")
+                text_file.write(f"Domain {i} | Error: {mean_error[i]:.5f} | Acc: {a*100:.2f}%\n")
             text_file.write(f"Mean Error: {statistics.mean(error):.5f} | "
-                            f"Mean Acc: {statistics.mean(evaluation):.2f}% \n")
+                            f"Mean Acc: {statistics.mean(evaluation)*100:.2f}% \n")
 
         if index != len(train_set) - 1:
             accuracy[index].append(evaluate_next(si.model, index, test_set, si.loss, device))
@@ -791,7 +789,7 @@ def train_gem(model, loss, device, optimizer, train_set, test_set, suffix, confi
                         cur_task_inputs = buf_inputs[buf_task_labels == tt]
                         cur_task_labels = buf_labels[buf_task_labels == tt]
                         cur_task_outputs = gem.model(cur_task_inputs)
-                        buffer_loss = gem.loss(cur_task_outputs.unsqueeze(0), cur_task_labels.unsqueeze(0).long())
+                        buffer_loss = gem.loss(cur_task_outputs.unsqueeze(0), cur_task_labels)
                         buffer_loss.backward()
                         store_gradient(gem.model.parameters(), gem.grads_cs[tt], gem.grad_dims)
 
@@ -800,7 +798,7 @@ def train_gem(model, loss, device, optimizer, train_set, test_set, suffix, confi
                 x = x.to(device)
                 output = gem.model(x)
                 y = y.to(device)
-                s_loss = gem.loss(output, y.long())
+                s_loss = gem.loss(output, y.squeeze(1))
 
                 if config['cnn']:
                     l1_reg = 0
@@ -844,37 +842,37 @@ def train_gem(model, loss, device, optimizer, train_set, test_set, suffix, confi
                 for past in range(index):
                     test_loader = DataLoader(test_set[past], batch_size=1, shuffle=False)
                     tmp, _ = test_epoch(gem.model, test_loader, gem.loss, device)
-                    writer_list[past].add_scalar('Test/domain_accuracy', statistics.mean(tmp),
+                    writer_list[past].add_scalar('Test/domain_accuracy', statistics.mean(tmp)*100,
                                                  epoch + (config['epochs'] * index))
-                    test_list[past].append(statistics.mean(tmp))
+                    test_list[past].append(statistics.mean(tmp)*100)
                     for t in tmp:
                         tmp_list.append(t)
                 # Current task
                 test_loader = DataLoader(test_set[index], batch_size=1, shuffle=False)
                 tmp, loss_task = test_epoch(gem.model, test_loader, gem.loss, device)
-                writer_list[index].add_scalar('Test/domain_accuracy', statistics.mean(tmp),
+                writer_list[index].add_scalar('Test/domain_accuracy', statistics.mean(tmp)*100,
                                               epoch + (config['epochs'] * index))
                 writer_list[index].add_scalar('Test/domain_loss', statistics.mean(loss_task),
                                               epoch + (config['epochs'] * index))
-                test_list[index].append(statistics.mean(tmp))
+                test_list[index].append(statistics.mean(tmp)*100)
                 for t in tmp:
                     tmp_list.append(t)
 
-                avg = sum(tmp_list) / len(tmp_list)
+                avg = sum(tmp_list) / len(tmp_list)*100
                 test_writer.add_scalar('Test/mean_accuracy', avg, epoch + (config['epochs'] * index))
 
         gem.end_task(train_set)
 
         # Test at the end of domain
         evaluation, error, mean_evaluation, mean_error = evaluate_past(gem.model, index, test_set, gem.loss, device)
-        print(f"Mean Error: {statistics.mean(error):.5f} | Mean Acc: {statistics.mean(evaluation):.2f}%")
+        print(f"Mean Error: {statistics.mean(error):.5f} | Mean Acc: {statistics.mean(evaluation)*100:.2f}%")
         accuracy.append(mean_evaluation)
         if config['evaluate']:
             text_file.write(f"---Evaluation after domain {index}--- \n")
             for i, a in enumerate(mean_evaluation):
-                text_file.write(f"Domain {i} | Error: {mean_error[i]:.5f} | Acc: {a:.2f}%\n")
+                text_file.write(f"Domain {i} | Error: {mean_error[i]:.5f} | Acc: {a*100:.2f}%\n")
             text_file.write(f"Mean Error: {statistics.mean(error):.5f} | "
-                            f"Mean Acc: {statistics.mean(evaluation):.2f}% \n")
+                            f"Mean Acc: {statistics.mean(evaluation)*100:.2f}% \n")
 
         if index != len(train_set) - 1:
             accuracy[index].append(evaluate_next(gem.model, index, test_set, gem.loss, device))
@@ -935,7 +933,7 @@ def train_a_gem(model, loss, device, optimizer, train_set, test_set, suffix, con
                 x = x.to(device)
                 output = a_gem.model(x)
                 y = y.to(device)
-                s_loss = a_gem.loss(output, y.long())
+                s_loss = a_gem.loss(output, y.squeeze(1))
 
                 if config['cnn']:
                     l1_reg = 0
@@ -955,8 +953,8 @@ def train_a_gem(model, loss, device, optimizer, train_set, test_set, suffix, con
 
                     buf_inputs, buf_labels, _ = a_gem.buffer.get_data(config['batch_size'])
                     a_gem.optimizer.zero_grad()
-                    buf_outputs = a_gem.model(buf_inputs)
-                    penalty = a_gem.loss(buf_outputs.unsqueeze(0), buf_labels.unsqueeze(0).long())
+                    buf_outputs = a_gem.model(torch.stack(buf_inputs))
+                    penalty = a_gem.loss(buf_outputs, torch.stack(buf_labels).squeeze(1))
                     penalty.backward()
                     store_gradient(a_gem.model.parameters(), a_gem.grad_er, a_gem.grad_dims)
 
@@ -985,37 +983,37 @@ def train_a_gem(model, loss, device, optimizer, train_set, test_set, suffix, con
                 for past in range(index):
                     test_loader = DataLoader(test_set[past], batch_size=1, shuffle=False)
                     tmp, _ = test_epoch(a_gem.model, test_loader, a_gem.loss, device)
-                    writer_list[past].add_scalar('Test/domain_accuracy', statistics.mean(tmp),
+                    writer_list[past].add_scalar('Test/domain_accuracy', statistics.mean(tmp)*100,
                                                  epoch + (config['epochs'] * index))
-                    test_list[past].append(statistics.mean(tmp))
+                    test_list[past].append(statistics.mean(tmp)*100)
                     for t in tmp:
                         tmp_list.append(t)
                 # Current task
                 test_loader = DataLoader(test_set[index], batch_size=1, shuffle=False)
                 tmp, loss_task = test_epoch(a_gem.model, test_loader, a_gem.loss, device)
-                writer_list[index].add_scalar('Test/domain_accuracy', statistics.mean(tmp),
+                writer_list[index].add_scalar('Test/domain_accuracy', statistics.mean(tmp)*100,
                                               epoch + (config['epochs'] * index))
                 writer_list[index].add_scalar('Test/domain_loss', statistics.mean(loss_task),
                                               epoch + (config['epochs'] * index))
-                test_list[index].append(statistics.mean(tmp))
+                test_list[index].append(statistics.mean(tmp)*100)
                 for t in tmp:
                     tmp_list.append(t)
 
-                avg = sum(tmp_list) / len(tmp_list)
+                avg = sum(tmp_list) / len(tmp_list)*100
                 test_writer.add_scalar('Test/mean_accuracy', avg, epoch + (config['epochs'] * index))
 
-        a_gem.end_task(train_set)
+        a_gem.end_task(train_set, index)
 
         # Test at the end of domain
         evaluation, error, mean_evaluation, mean_error = evaluate_past(a_gem.model, index, test_set, a_gem.loss, device)
-        print(f"Mean Error: {statistics.mean(error):.5f} | Mean Acc: {statistics.mean(evaluation):.2f}%")
+        print(f"Mean Error: {statistics.mean(error):.5f} | Mean Acc: {statistics.mean(evaluation)*100:.2f}%")
         accuracy.append(mean_evaluation)
         if config['evaluate']:
             text_file.write(f"---Evaluation after domain {index}--- \n")
             for i, a in enumerate(mean_evaluation):
-                text_file.write(f"Domain {i} | Error: {mean_error[i]:.5f} | Acc: {a:.2f}%\n")
+                text_file.write(f"Domain {i} | Error: {mean_error[i]:.5f} | Acc: {a*100:.2f}%\n")
             text_file.write(f"Mean Error: {statistics.mean(error):.5f} | "
-                            f"Mean Acc: {statistics.mean(evaluation):.2f}% \n")
+                            f"Mean Acc: {statistics.mean(evaluation)*100:.2f}% \n")
 
         if index != len(train_set) - 1:
             accuracy[index].append(evaluate_next(a_gem.model, index, test_set, a_gem.loss, device))
@@ -1076,7 +1074,7 @@ def train_a_gem_r(model, loss, device, optimizer, train_set, test_set, suffix, c
                 x = x.to(device)
                 output = a_gem.model(x)
                 y = y.to(device)
-                s_loss = a_gem.loss(output, y.long())
+                s_loss = a_gem.loss(output, y.squeeze(1))
 
                 if config['cnn']:
                     l1_reg = 0
@@ -1096,8 +1094,8 @@ def train_a_gem_r(model, loss, device, optimizer, train_set, test_set, suffix, c
 
                     buf_inputs, buf_labels, _ = a_gem.buffer.get_data(config['batch_size'])
                     a_gem.optimizer.zero_grad()
-                    buf_outputs = a_gem.model(buf_inputs)
-                    penalty = a_gem.loss(buf_outputs.unsqueeze(0), buf_labels.unsqueeze(0).long())
+                    buf_outputs = a_gem.model(torch.stack(buf_inputs))
+                    penalty = a_gem.loss(buf_outputs, torch.stack(buf_labels).squeeze(1))
                     penalty.backward()
                     store_gradient(a_gem.model.parameters(), a_gem.grad_er, a_gem.grad_dims)
 
@@ -1129,35 +1127,35 @@ def train_a_gem_r(model, loss, device, optimizer, train_set, test_set, suffix, c
                 for past in range(index):
                     test_loader = DataLoader(test_set[past], batch_size=1, shuffle=False)
                     tmp, _ = test_epoch(a_gem.model, test_loader, a_gem.loss, device)
-                    writer_list[past].add_scalar('Test/domain_accuracy', statistics.mean(tmp),
+                    writer_list[past].add_scalar('Test/domain_accuracy', statistics.mean(tmp)*100,
                                                  epoch + (config['epochs'] * index))
-                    test_list[past].append(statistics.mean(tmp))
+                    test_list[past].append(statistics.mean(tmp)*100)
                     for t in tmp:
                         tmp_list.append(t)
                 # Current task
                 test_loader = DataLoader(test_set[index], batch_size=1, shuffle=False)
                 tmp, loss_task = test_epoch(a_gem.model, test_loader, a_gem.loss, device)
-                writer_list[index].add_scalar('Test/domain_accuracy', statistics.mean(tmp),
+                writer_list[index].add_scalar('Test/domain_accuracy', statistics.mean(tmp)*100,
                                               epoch + (config['epochs'] * index))
                 writer_list[index].add_scalar('Test/domain_loss', statistics.mean(loss_task),
                                               epoch + (config['epochs'] * index))
-                test_list[index].append(statistics.mean(tmp))
+                test_list[index].append(statistics.mean(tmp)*100)
                 for t in tmp:
                     tmp_list.append(t)
 
-                avg = sum(tmp_list) / len(tmp_list)
+                avg = sum(tmp_list) / len(tmp_list)*100
                 test_writer.add_scalar('Test/mean_accuracy', avg, epoch + (config['epochs'] * index))
 
         # Test at the end of domain
         evaluation, error, mean_evaluation, mean_error = evaluate_past(a_gem.model, index, test_set, a_gem.loss, device)
-        print(f"Mean Error: {statistics.mean(error):.5f} | Mean Acc: {statistics.mean(evaluation):.2f}%")
+        print(f"Mean Error: {statistics.mean(error):.5f} | Mean Acc: {statistics.mean(evaluation)*100:.2f}%")
         accuracy.append(mean_evaluation)
         if config['evaluate']:
             text_file.write(f"---Evaluation after domain {index}--- \n")
             for i, a in enumerate(mean_evaluation):
-                text_file.write(f"Domain {i} | Error: {mean_error[i]:.5f} | Acc: {a:.2f}%\n")
+                text_file.write(f"Domain {i} | Error: {mean_error[i]:.5f} | Acc: {a*100:.2f}%\n")
             text_file.write(f"Mean Error: {statistics.mean(error):.5f} | "
-                            f"Mean Acc: {statistics.mean(evaluation):.2f}% \n")
+                            f"Mean Acc: {statistics.mean(evaluation)*100:.2f}% \n")
 
         if index != len(train_set) - 1:
             accuracy[index].append(evaluate_next(a_gem.model, index, test_set, a_gem.loss, device))

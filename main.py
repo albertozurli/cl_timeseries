@@ -62,22 +62,20 @@ parser.add_argument('--agem', action='store_true',
                     help="Continual Learning with A-GEM")
 parser.add_argument('--agem_r', action='store_true',
                     help="Continual Learning with A-GEM with Reservoir")
-# EWC Parameters
+# Regularization Parameters
 parser.add_argument('--gamma', type=float, default=0.7,
                     help="gamma value for EWC")
 parser.add_argument('--e_lambda', type=float, default=100,
                     help="lambda value for EWC")
-# SI Parameters
 parser.add_argument('--xi', type=float, default=1,
                     help="xi value for SI")
 parser.add_argument('--c', type=float, default=0.5,
                     help="c value for SI")
-# ER/DER Parameters
+# Replay Parameters
 parser.add_argument('--buffer_size', type=int, default=500,
-                    help="Size of the buffer for ER/DER")
+                    help="Size of the buffer for replay methods")
 parser.add_argument('--alpha', type=float, default=0.1,
                     help="penalty weight for DER")
-# GEM Parameters
 parser.add_argument('--gem_gamma', type=float, default=0.25,
                     help="gamma value for GEM")
 
