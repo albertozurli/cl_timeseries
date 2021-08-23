@@ -2,25 +2,6 @@ import torch.nn as nn
 import torch
 
 
-class RegressionMLP(nn.Module):
-    def __init__(self, input_size):
-        super(RegressionMLP, self).__init__()
-        self.input_size = input_size
-        self.net = nn.Sequential(
-            nn.Linear(input_size, 100),
-            nn.ReLU(),
-            nn.Linear(100, 50),
-            nn.ReLU(),
-            nn.Linear(50, 25),
-            nn.ReLU(),
-            nn.Linear(25, 1),
-        )
-
-    def forward(self, x):
-        x = self.net(x)
-        return x
-
-
 class ClassficationMLP(nn.Module):
     def __init__(self, input_size, dropout):
         super(ClassficationMLP, self).__init__()

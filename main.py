@@ -4,11 +4,11 @@ import warnings
 import torch
 import time
 
+import models
+
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
-from utils.models import RegressionMLP, ClassficationMLP, SimpleCNN
-import utils.training
-from utils.utils import read_csv, split_data, split_with_indicators, eval_bayesian, check_changepoints, \
-    timeperiod
+from utils.backbone import ClassficationMLP, SimpleCNN
+from utils.utils import read_csv, split_data, split_with_indicators, eval_bayesian, check_changepoints, timeperiod
 from torchsummary import summary
 
 import numpy as np
@@ -28,16 +28,14 @@ parser.add_argument('--epochs', type=int, default=300,
 parser.add_argument('--lr', type=float, default=0.0001,
                     help="Learning rate")
 parser.add_argument('--dataset', type=str, help="CSV file")
-parser.add_argument('--regression', action='store_true',
-                    help="Regression task")
 parser.add_argument('--processing', default='none', choices=['none', 'difference', 'indicators'],
                     help="Type of pre-processing")
 parser.add_argument('--split', action='store_true',
-                    help="Show domain split")
+                    help="Show tasks split")
 parser.add_argument('--suffix', type=str, default="",
                     help="Suffix name")
 parser.add_argument('--evaluate', action='store_true',
-                    help="Test previous + current domain each epoch")
+                    help="Test current and prevoius tasks each epoch")
 # Network
 parser.add_argument('--cnn', action='store_true',
                     help="Convolutional Network")
@@ -46,22 +44,8 @@ parser.add_argument('--dropout', type=float, default=0.5,
 parser.add_argument('--l1_lambda', type=float, default=0.001,
                     help="Regularization param in L1 Norm (CNN only)")
 # Methods
-parser.add_argument('--online', action='store_true',
-                    help="Online Learning")
-parser.add_argument('--er', action='store_true',
-                    help="Continual Learning with ER")
-parser.add_argument('--der', action='store_true',
-                    help="Continual Learning with Dark ER")
-parser.add_argument('--ewc', action='store_true',
-                    help="Continual Learning with EWC")
-parser.add_argument('--si', action='store_true',
-                    help="Continual Learning with SI")
-parser.add_argument('--gem', action='store_true',
-                    help="Continual Learning with GEM")
-parser.add_argument('--agem', action='store_true',
-                    help="Continual Learning with A-GEM")
-parser.add_argument('--agem_r', action='store_true',
-                    help="Continual Learning with A-GEM with Reservoir")
+parser.add_argument('--model', default='online', choices=['online', 'er', 'der', 'ewc', 'si', 'gem', 'agem', 'agem_r'],
+                    help="CL technique")
 # Regularization Parameters
 parser.add_argument('--gamma', type=float, default=0.7,
                     help="gamma value for EWC")
@@ -74,7 +58,7 @@ parser.add_argument('--c', type=float, default=0.5,
 # Replay Parameters
 parser.add_argument('--buffer_size', type=int, default=500,
                     help="Size of the buffer for replay methods")
-parser.add_argument('--alpha', type=float, default=0.1,
+parser.add_argument('--alpha', type=float, default=0.01,
                     help="penalty weight for DER")
 parser.add_argument('--gem_gamma', type=float, default=0.25,
                     help="gamma value for GEM")
@@ -117,97 +101,70 @@ def main(config):
     print(f"Device: {device}")
     print(torch.cuda.get_device_name(0))
 
-    # Setup the model
-
+    # Setup the backbone
     input_size = train_data[0][0][0].size()[0]
-    if config["regression"]:
-        model = RegressionMLP(input_size=input_size)
-        model = model.to(device)
-        loss = nn.MSELoss()
-        optimizer = torch.optim.Adadelta(model.parameters(), lr=config["lr"])
+
+    if config["cnn"]:
+        model = SimpleCNN(input_size=input_size)
     else:
-        if config["cnn"]:
-            model = SimpleCNN(input_size=input_size)
-        else:
-            model = ClassficationMLP(input_size=input_size, dropout=config['dropout'])
-        optimizer = torch.optim.SGD(model.parameters(), lr=config["lr"])
-        model = model.to(device)
-        loss = nn.CrossEntropyLoss()
-        torch.save({'model_state_dict': model.state_dict(),
-                    'optimizer_state_dict': optimizer.state_dict(),
-                    }, 'checkpoints/model_scratch.pt')
+        model = ClassficationMLP(input_size=input_size, dropout=config['dropout'])
+
+    optimizer = torch.optim.SGD(model.parameters(), lr=config["lr"])
+    model = model.to(device)
+    loss = nn.CrossEntropyLoss()
+    torch.save({'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                }, 'checkpoints/model_scratch.pt')
 
     # print(model)
     summary(model, train_data[0][0][0].size())
 
     if not config['suffix']:
-        suffix = config['dataset'].partition('-')[0]
+        # suffix = config['dataset'].partition('-')[0]
+        suffix = ""
     else:
         suffix = config['suffix']
 
     # Online training
-    if config["online"]:
-        initial_model = torch.load('checkpoints/model_scratch.pt')
-        model.load_state_dict(initial_model['model_state_dict'])
-        optimizer.load_state_dict(initial_model['optimizer_state_dict'])
-        utils.training.train_online(train_set=train_data, test_set=test_data, model=model, loss=loss,
-                                    optimizer=optimizer, config=config, device=device, suffix=suffix)
+    if config["model"] == 'online':
+        models.online.train_online(train_set=train_data, test_set=test_data, model=model, loss=loss,
+                                   optimizer=optimizer, config=config, device=device, suffix=suffix)
 
     # Continual learning with ER
-    if config['er']:
-        initial_model = torch.load('checkpoints/model_scratch.pt')
-        model.load_state_dict(initial_model['model_state_dict'])
-        optimizer.load_state_dict(initial_model['optimizer_state_dict'])
-        utils.training.train_er(train_set=train_data, test_set=test_data, model=model, loss=loss,
-                                optimizer=optimizer, device=device, config=config, suffix=suffix)
-
-    # Continual learning with Dark ER
-    if config['der']:
-        initial_model = torch.load('checkpoints/model_scratch.pt')
-        model.load_state_dict(initial_model['model_state_dict'])
-        optimizer.load_state_dict(initial_model['optimizer_state_dict'])
-        utils.training.train_dark_er(train_set=train_data, test_set=test_data, model=model, loss=loss,
-                                     optimizer=optimizer, device=device, config=config, suffix=suffix)
-
-    # Continual learning with EWC
-    if config['ewc']:
-        initial_model = torch.load('checkpoints/model_scratch.pt')
-        model.load_state_dict(initial_model['model_state_dict'])
-        optimizer.load_state_dict(initial_model['optimizer_state_dict'])
-        utils.training.train_ewc(train_set=train_data, test_set=test_data, model=model, loss=loss,
-                                 optimizer=optimizer, device=device, config=config, suffix=suffix)
-
-    # Continual learning with SI
-    if config['si']:
-        initial_model = torch.load('checkpoints/model_scratch.pt')
-        model.load_state_dict(initial_model['model_state_dict'])
-        optimizer.load_state_dict(initial_model['optimizer_state_dict'])
-        utils.training.train_si(train_set=train_data, test_set=test_data, model=model, loss=loss,
-                                optimizer=optimizer, device=device, config=config, suffix=suffix)
-
-    # Continual learning with GEM
-    if config['gem']:
-        initial_model = torch.load('checkpoints/model_scratch.pt')
-        model.load_state_dict(initial_model['model_state_dict'])
-        optimizer.load_state_dict(initial_model['optimizer_state_dict'])
-        utils.training.train_gem(train_set=train_data, test_set=test_data, model=model, loss=loss,
-                                 optimizer=optimizer, device=device, config=config, suffix=suffix)
-
-    # Continual learning with A-GEM
-    if config['agem']:
-        initial_model = torch.load('checkpoints/model_scratch.pt')
-        model.load_state_dict(initial_model['model_state_dict'])
-        optimizer.load_state_dict(initial_model['optimizer_state_dict'])
-        utils.training.train_a_gem(train_set=train_data, test_set=test_data, model=model, loss=loss,
+    if config["model"] == 'er':
+        models.exp_replay.train_er(train_set=train_data, test_set=test_data, model=model, loss=loss,
                                    optimizer=optimizer, device=device, config=config, suffix=suffix)
 
+    # Continual learning with Dark ER
+    if config["model"] == 'der':
+        models.dark_exp_replay.train_dark_er(train_set=train_data, test_set=test_data, model=model, loss=loss,
+                                             optimizer=optimizer, device=device, config=config, suffix=suffix)
+
+    # Continual learning with EWC
+    if config["model"] == 'ewc':
+        models.ewc.train_ewc(train_set=train_data, test_set=test_data, model=model, loss=loss,
+                             optimizer=optimizer, device=device, config=config, suffix=suffix)
+
+    # Continual learning with SI
+    if config["model"] == 'si':
+        models.si.train_si(train_set=train_data, test_set=test_data, model=model, loss=loss,
+                           optimizer=optimizer, device=device, config=config, suffix=suffix)
+
+    # Continual learning with GEM
+    if config["model"] == 'gem':
+        models.gem.train_gem(train_set=train_data, test_set=test_data, model=model, loss=loss,
+                             optimizer=optimizer, device=device, config=config, suffix=suffix)
+
+    # Continual learning with A-GEM
+    if config["model"] == 'agem':
+        models.agem.train_agem(train_set=train_data, test_set=test_data, model=model, loss=loss,
+                               optimizer=optimizer, device=device, config=config, suffix=suffix)
+
     # Continual learning with A-GEM with Reservoir
-    if config['agem_r']:
-        initial_model = torch.load('checkpoints/model_scratch.pt')
-        model.load_state_dict(initial_model['model_state_dict'])
-        optimizer.load_state_dict(initial_model['optimizer_state_dict'])
-        utils.training.train_a_gem_r(train_set=train_data, test_set=test_data, model=model, loss=loss,
-                                     optimizer=optimizer, device=device, config=config, suffix=suffix)
+    if config["model"] == 'agem_r':
+        models.agem_r.train_agem_r(train_set=train_data, test_set=test_data, model=model, loss=loss,
+                                   optimizer=optimizer, device=device, config=config, suffix=suffix)
+
     end = time.time()
     print("\nTime elapsed: ", end - start, "s")
 

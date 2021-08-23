@@ -8,6 +8,7 @@ Model is customizable, for further information refer to
 python ./main.py -h
 ```
 Input data can also be pre-processed with `--processing`:
+* `--none`
 * `--difference`
 * `--indicators` (Project is tested with this option)
 
@@ -33,47 +34,37 @@ pip install -r requirements.txt
 
 [PyTorch](https://pytorch.org/) and [TA-Lib](https://github.com/mrjbq7/ta-lib) are also required, please visit the official pages
 ## Model:
-+ By default, the DL model used is a simple MLP with Dropout
++ By default, the DL backbone used is a simple MLP with Dropout
 + In addition a CNN with 1-D Convolution with L1 Norm regulariation might be used (to be fixed and tested) with the argument 
 ```--cnn ```
 ## Online learning:
 
 Model can be executed for both regression and classification (regression not working at the moment)
 
-Online training and testing:
+Online training:
 ```
-python ./main.py --online 
+python ./main.py  
+```
+or
+```
+python ./main.py  --model online
 ```
 
-## Continual learning with ER (Replay):
+## Other CL methods
+With the option ```--model ``` can be trained (and tested) with the following models:
++ Averaged GEM
++ Avergaed GEM with Reservoir
++ Dark Experience Replay
++ Elastic Weight Consolidation
++ Experience Replay
++ Gradient Episodic Memory
++ Synaptic Intelligence
 
-Continual training and testing:
-```
-python ./main.py --er
-```
-## Continual learning with Dark ER (Replay):
+## Evaluation
+Wiht the argument ```--evaluate ``` each model can be tested each epoch for both current and previous tasks with a final recap .csv file.
 
-Continual training and testing:
-```
-python ./main.py --er
-```
-## Continual learning with EWC(Regularization):
-
-Continual training and testing:
-```
-python ./main.py --ewc
-```
-## Continual learning with SI(Regularization):
-
-Continual training and testing:
-```
-python ./main.py --si
-```
 
 ### TO DO:
-* Fix DER
 * Finish regularization for CNN
-* Implement Residual Block (?)  
 * Classification on % of outscore/outperform and not on price
 * Test with different sequence timestep (actually 30 days of observation and prediction 30 days later)
-* Implement MER, GEM, A-GEM

@@ -167,11 +167,10 @@ def binary_accuracy(y_pred, y_true):
     :param y_true: true label
     :return: accuracy
     """
-    # y_pred_tag = torch.round(y_pred)
-    result_sum = (y_pred == y_true).sum().float()
+
+    result_sum = (y_pred == y_true).sum()
     acc = result_sum / y_true.shape[0]
-    # acc = torch.round(acc)
-    return acc
+    return acc*100
 
 
 def eval_bayesian(chps, raw_data):
