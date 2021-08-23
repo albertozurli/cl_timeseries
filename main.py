@@ -4,7 +4,14 @@ import warnings
 import torch
 import time
 
-import models
+from models.online import train_online
+from models.agem import train_agem
+from models.agem_r import train_agem_r
+from models.si import train_si
+from models.gem import train_gem
+from models.dark_exp_replay import train_dark_er
+from models.exp_replay import train_er
+from models.ewc import train_ewc
 
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 from utils.backbone import ClassficationMLP, SimpleCNN
@@ -32,7 +39,7 @@ parser.add_argument('--processing', default='none', choices=['none', 'difference
                     help="Type of pre-processing")
 parser.add_argument('--split', action='store_true',
                     help="Show tasks split")
-parser.add_argument('--suffix', type=str, default="",
+parser.add_argument('--suffix', type=str, default="default",
                     help="Suffix name")
 parser.add_argument('--evaluate', action='store_true',
                     help="Test current and prevoius tasks each epoch")
@@ -119,51 +126,45 @@ def main(config):
     # print(model)
     summary(model, train_data[0][0][0].size())
 
-    if not config['suffix']:
-        # suffix = config['dataset'].partition('-')[0]
-        suffix = ""
-    else:
-        suffix = config['suffix']
-
     # Online training
     if config["model"] == 'online':
-        models.online.train_online(train_set=train_data, test_set=test_data, model=model, loss=loss,
-                                   optimizer=optimizer, config=config, device=device, suffix=suffix)
+        train_online(train_set=train_data, test_set=test_data, model=model, loss=loss,
+                     optimizer=optimizer, config=config, device=device, suffix=config['suffix'])
 
     # Continual learning with ER
     if config["model"] == 'er':
-        models.exp_replay.train_er(train_set=train_data, test_set=test_data, model=model, loss=loss,
-                                   optimizer=optimizer, device=device, config=config, suffix=suffix)
+        train_er(train_set=train_data, test_set=test_data, model=model, loss=loss,
+                 optimizer=optimizer, device=device, config=config, suffix=config['suffix'])
 
     # Continual learning with Dark ER
     if config["model"] == 'der':
-        models.dark_exp_replay.train_dark_er(train_set=train_data, test_set=test_data, model=model, loss=loss,
-                                             optimizer=optimizer, device=device, config=config, suffix=suffix)
+        train_dark_er(train_set=train_data, test_set=test_data, model=model, loss=loss,
+                      optimizer=optimizer, device=device, config=config, suffix=config['suffix'])
 
     # Continual learning with EWC
     if config["model"] == 'ewc':
-        models.ewc.train_ewc(train_set=train_data, test_set=test_data, model=model, loss=loss,
-                             optimizer=optimizer, device=device, config=config, suffix=suffix)
+        train_ewc(train_set=train_data, test_set=test_data, model=model, loss=loss,
+                  optimizer=optimizer, device=device, config=config, suffix=config['suffix'])
 
     # Continual learning with SI
     if config["model"] == 'si':
-        models.si.train_si(train_set=train_data, test_set=test_data, model=model, loss=loss,
-                           optimizer=optimizer, device=device, config=config, suffix=suffix)
+        train_si(train_set=train_data, test_set=test_data, model=model, loss=loss,
+                 optimizer=optimizer, device=device, config=config, suffix=config['suffix'])
 
     # Continual learning with GEM
     if config["model"] == 'gem':
-        models.gem.train_gem(train_set=train_data, test_set=test_data, model=model, loss=loss,
-                             optimizer=optimizer, device=device, config=config, suffix=suffix)
+        train_gem(train_set=train_data, test_set=test_data, model=model, loss=loss,
+                  optimizer=optimizer, device=device, config=config, suffix=config['suffix'])
 
     # Continual learning with A-GEM
     if config["model"] == 'agem':
-        models.agem.train_agem(train_set=train_data, test_set=test_data, model=model, loss=loss,
-                               optimizer=optimizer, device=device, config=config, suffix=suffix)
+        train_agem(train_set=train_data, test_set=test_data, model=model, loss=loss,
+                   optimizer=optimizer, device=device, config=config, suffix=config['suffix'])
 
     # Continual learning with A-GEM with Reservoir
     if config["model"] == 'agem_r':
-        models.agem_r.train_agem_r(train_set=train_data, test_set=test_data, model=model, loss=loss,
-                                   optimizer=optimizer, device=device, config=config, suffix=suffix)
+        train_agem_r(train_set=train_data, test_set=test_data, model=model, loss=loss,
+                     optimizer=optimizer, device=device, config=config, suffix=config['suffix'])
 
     end = time.time()
     print("\nTime elapsed: ", end - start, "s")

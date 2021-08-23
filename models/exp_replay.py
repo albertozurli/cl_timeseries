@@ -72,7 +72,7 @@ def train_er(train_set, test_set, model, loss, optimizer, device, config, suffix
                     s_loss += config['l1_lambda'] * l1_reg
 
                 _, pred = torch.max(output.data, 1)
-                acc = binary_accuracy(pred, y.squeeze(1))
+                acc = binary_accuracy(pred, labels.squeeze(1))
 
                 epoch_loss.append(s_loss.item())
                 epoch_acc.append(acc.item())

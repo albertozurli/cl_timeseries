@@ -60,7 +60,7 @@ def train_dark_er(train_set, test_set, model, loss, optimizer, device, config, s
 
                 first_loss = loss(output, labels.squeeze(1))
                 _, pred = torch.max(output.data, 1)
-                acc = binary_accuracy(pred, y.squeeze(1))
+                acc = binary_accuracy(pred, labels.squeeze(1))
 
                 if not der.buffer.is_empty():
                     buf_input, buf_logit, _ = der.buffer.get_data(config['batch_size'])

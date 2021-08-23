@@ -1,13 +1,13 @@
 import statistics
 import torch
 
-from utils.agem import project
+from models.agem import project
 from utils.buffer import Buffer
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from utils.gem import store_gradient, overwrite_gradient
+from models.gem import store_gradient, overwrite_gradient
 from utils.metrics import backward_transfer, forgetting, forward_transfer
 from utils.evaluation import evaluate_past, test_epoch, evaluate_next
 from utils.utils import binary_accuracy
