@@ -46,13 +46,13 @@ class SimpleCNN(nn.Module):
             nn.LeakyReLU(),
             nn.Conv1d(in_channels=16, out_channels=32, kernel_size=(3,), stride=(1,)),
             nn.LeakyReLU(),
-            nn.Conv1d(in_channels=32, out_channels=32, kernel_size=(3,), stride=(3,)),
+            nn.Conv1d(in_channels=32, out_channels=64, kernel_size=(3,), stride=(3,)),
             nn.LeakyReLU(),
         )
         self.fc = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(9*32, 32),
-            nn.Linear(32, 2),
+            nn.Linear(9*64, 64),
+            nn.Linear(64, 2),
         )
 
     def forward(self, x):

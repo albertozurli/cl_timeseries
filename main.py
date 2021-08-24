@@ -48,7 +48,7 @@ parser.add_argument('--cnn', action='store_true',
                     help="Convolutional Network")
 parser.add_argument('--dropout', type=float, default=0.5,
                     help="Probabilty for dropout in MLP")
-parser.add_argument('--l1_lambda', type=float, default=0.001,
+parser.add_argument('--l1_lambda', type=float, default=0.01,
                     help="Regularization param in L1 Norm (CNN only)")
 # Methods
 parser.add_argument('--model', default='online', choices=['online', 'er', 'der', 'ewc', 'si', 'gem', 'agem', 'agem_r'],
@@ -65,7 +65,7 @@ parser.add_argument('--c', type=float, default=0.5,
 # Replay Parameters
 parser.add_argument('--buffer_size', type=int, default=500,
                     help="Size of the buffer for replay methods")
-parser.add_argument('--alpha', type=float, default=0.01,
+parser.add_argument('--alpha', type=float, default=0.001,
                     help="penalty weight for DER")
 parser.add_argument('--gem_gamma', type=float, default=0.25,
                     help="gamma value for GEM")
@@ -116,7 +116,7 @@ def main(config):
     else:
         model = ClassficationMLP(input_size=input_size, dropout=config['dropout'])
 
-    optimizer = torch.optim.SGD(model.parameters(), lr=config["lr"])
+    optimizer = torch.optim.SGD(model.parameters(), lr=config["lr"], momentum=0.7)
     model = model.to(device)
     loss = nn.CrossEntropyLoss()
     torch.save({'model_state_dict': model.state_dict(),

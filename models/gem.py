@@ -51,10 +51,10 @@ def train_gem(model, loss, device, optimizer, train_set, test_set, suffix, confi
                     # Gradient buffer
                     for tt in unique(buf_task_labels):
                         gem.optimizer.zero_grad()
-                        cur_task_inputs = buf_inputs[buf_task_labels == tt]
-                        cur_task_labels = buf_labels[buf_task_labels == tt]
-                        cur_task_outputs = gem.model(cur_task_inputs)
-                        buffer_loss = gem.loss(cur_task_outputs.unsqueeze(0), cur_task_labels)
+                        cur_task_inputs = [buf_inputs[i] for i in range(len(buf_task_labels)) if buf_task_labels[i] == tt]
+                        cur_task_labels = [buf_labels[i] for i in range(len(buf_task_labels)) if buf_task_labels[i] == tt]
+                        cur_task_outputs = gem.model(torch.stack(cur_task_inputs))
+                        buffer_loss = gem.loss(cur_task_outputs, torch.stack(cur_task_labels).squeeze(1))
                         buffer_loss.backward()
                         store_gradient(gem.model.parameters(), gem.grads_cs[tt], gem.grad_dims)
 

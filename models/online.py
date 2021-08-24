@@ -46,9 +46,6 @@ def train_online(train_set, test_set, model, loss, optimizer, device, config, su
             epoch_loss = []
             epoch_acc = []
 
-            reg_loss = []
-            orignal_loss = []
-
             for j, (x, y) in enumerate(train_loader):
                 optimizer.zero_grad()
 
@@ -57,13 +54,10 @@ def train_online(train_set, test_set, model, loss, optimizer, device, config, su
                 output = model(x)
                 s_loss = loss(output, y.squeeze(1))
 
-                orignal_loss.append(s_loss.item())
-
                 if config['cnn']:
                     l1_reg = 0
                     for param in model.parameters():
                         l1_reg += torch.norm(param, 1)
-                    reg_loss.append(l1_reg.item())
                     s_loss += config['l1_lambda'] * l1_reg
 
                 _, pred = torch.max(output.data, 1)
@@ -75,10 +69,6 @@ def train_online(train_set, test_set, model, loss, optimizer, device, config, su
                 s_loss.backward()
                 optimizer.step()
 
-            train_writer.add_scalar('Train/original_loss',
-                                    statistics.mean(orignal_loss), i + (config['epochs'] * index))
-            train_writer.add_scalar('Train/l1reg_loss',
-                                    statistics.mean(reg_loss), i + (config['epochs'] * index))
             train_writer.add_scalar('Train/total_loss',
                                     statistics.mean(epoch_loss), i + (config['epochs'] * index))
             train_writer.add_scalar('Train/accuracy',
