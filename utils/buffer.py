@@ -33,9 +33,10 @@ class Buffer:
         self.attributes = ['examples', 'labels']
         self.examples = [None] * self.buffer_size
         self.labels = [None] * self.buffer_size
+        self.logits = [None] * self.buffer_size
         self.task_number = [None] * self.buffer_size
 
-    def add_data(self, examples, task=None, labels=None):
+    def add_data(self, examples, task=None, labels=None,logits=None):
         """
         Adds the data to the memory buffer according to the reservoir strategy.
         :param examples: tensor containing the images
@@ -51,6 +52,8 @@ class Buffer:
                 self.task_number[index] = task
                 if labels is not None:
                     self.labels[index] = labels[i].to(self.device)
+                if logits is not None:
+                    self.logits[index] = logits[i].to(self.device)
 
     def get_data(self, size):
         """
@@ -67,8 +70,10 @@ class Buffer:
         ret_examples = [self.examples[idx] for idx in choice]
         ret_labels = [self.labels[idx] for idx in choice]
         ret_task_labels = [self.task_number[idx] for idx in choice]
+        ret_logits = [self.logits[idx] for idx in choice]
 
         return ret_examples, ret_labels, ret_task_labels
+        # return ret_examples, ret_labels, ret_logits
 
     def is_empty(self):
         """"

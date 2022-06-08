@@ -3,6 +3,7 @@ import os
 import warnings
 import torch
 import time
+import random
 
 from models.online import train_online
 from models.agem import train_agem
@@ -12,6 +13,7 @@ from models.gem import train_gem
 from models.dark_exp_replay import train_dark_er
 from models.exp_replay import train_er
 from models.ewc import train_ewc
+from models.derpp import train_derpp
 
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 from utils.backbone import ClassficationMLP, SimpleCNN
@@ -51,7 +53,8 @@ parser.add_argument('--dropout', type=float, default=0.5,
 parser.add_argument('--l1_lambda', type=float, default=0.01,
                     help="Regularization param in L1 Norm (CNN only)")
 # Methods
-parser.add_argument('--model', default='online', choices=['online', 'er', 'der', 'ewc', 'si', 'gem', 'agem', 'agem_r'],
+parser.add_argument('--model', default='online',
+                    choices=['online', 'er', 'der', 'derpp', 'ewc', 'si', 'gem', 'agem', 'agem_r'],
                     help="CL technique")
 # Regularization Parameters
 parser.add_argument('--gamma', type=float, default=0.7,
@@ -65,14 +68,21 @@ parser.add_argument('--c', type=float, default=0.5,
 # Replay Parameters
 parser.add_argument('--buffer_size', type=int, default=500,
                     help="Size of the buffer for replay methods")
-parser.add_argument('--alpha', type=float, default=0.001,
+parser.add_argument('--alpha', type=float, default=0.5,
                     help="penalty weight for DER")
+parser.add_argument('--beta', type=float, default=0.5,
+                    help="penalty weight for DER++")
 parser.add_argument('--gem_gamma', type=float, default=0.25,
                     help="gamma value for GEM")
 
 
 def main(config):
     start = time.time()
+
+    random.seed(230)
+    np.random.seed(230)
+    torch.manual_seed(230)
+    torch.cuda.manual_seed_all(230)
 
     raw_data = read_csv(config["dataset"])
 
@@ -83,7 +93,7 @@ def main(config):
     if not saved:
         det = detection.BayesOnline()
         # past and th heavily depend on data
-        chp_online = det.find_changepoints(raw_data, past=50, prob_threshold=0.3)
+        chp_online = det.find_changepoints(raw_data, past=50, prob_threshold=0.2)
         chps = chp_online[1:]
 
     # Evaluation bayesian analysis
@@ -140,6 +150,11 @@ def main(config):
     if config["model"] == 'der':
         train_dark_er(train_set=train_data, test_set=test_data, model=model, loss=loss,
                       optimizer=optimizer, device=device, config=config, suffix=config['suffix'])
+
+    # Continual learning with Dark ER
+    if config["model"] == 'derpp':
+        train_derpp(train_set=train_data, test_set=test_data, model=model, loss=loss,
+                    optimizer=optimizer, device=device, config=config, suffix=config['suffix'])
 
     # Continual learning with EWC
     if config["model"] == 'ewc':

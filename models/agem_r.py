@@ -11,13 +11,13 @@ from models.gem import store_gradient, overwrite_gradient
 from utils.metrics import backward_transfer, forgetting, forward_transfer
 from utils.evaluation import evaluate_past, test_epoch, evaluate_next
 from utils.utils import binary_accuracy
-
+import wandb
 import pandas as pd
 import numpy as np
 
 
 def train_agem_r(model, loss, device, optimizer, train_set, test_set, suffix, config):
-    train_writer = SummaryWriter('./runs/a_gem_r/train/' + suffix)
+    wandb.init(project="LOD2022", entity="albertozurli", reinit=True)
     a_gem = AGemR(config, device, model, loss, optimizer)
     accuracy = []
 
@@ -25,11 +25,7 @@ def train_agem_r(model, loss, device, optimizer, train_set, test_set, suffix, co
     if config['evaluate']:
         text_file = open("a_gem_r_" + suffix + ".txt", "a")
         text_file.write("A-GEM_R LEARNING \n")
-        test_writer = SummaryWriter('./runs/a_gem_r/test/' + suffix)
-        writer_list = []
         test_list = [[] for _ in range(len(train_set))]
-        for i in range(len(train_set)):
-            writer_list.append(SummaryWriter(f'./runs/a_gem_r/test/{suffix}/d_{i}'))
 
     # Eval without training
     _, _, random_mean_accuracy, _ = evaluate_past(a_gem.model, len(test_set) - 1, test_set, a_gem.loss, device)
@@ -89,10 +85,8 @@ def train_agem_r(model, loss, device, optimizer, train_set, test_set, suffix, co
                 if epoch == 0:
                     a_gem.buffer.add_data(examples=x.to(device), labels=y.to(device))
 
-            train_writer.add_scalar('Train/loss', statistics.mean(epoch_loss),
-                                    epoch + (config['epochs'] * index))
-            train_writer.add_scalar('Train/accuracy', statistics.mean(epoch_acc),
-                                    epoch + (config['epochs'] * index))
+            wandb.log({"Train/loss": statistics.mean(epoch_loss),
+                       "Train/accuracy": statistics.mean(epoch_acc)})
 
             if (epoch % 100 == 0) or (epoch == (config['epochs'] - 1)):
                 print(f'\nEpoch {epoch:03}/{config["epochs"]} | Loss: {statistics.mean(epoch_loss):.5f} '
@@ -105,24 +99,21 @@ def train_agem_r(model, loss, device, optimizer, train_set, test_set, suffix, co
                 for past in range(index):
                     test_loader = DataLoader(test_set[past], batch_size=1, shuffle=False)
                     tmp, _ = test_epoch(a_gem.model, test_loader, a_gem.loss, device)
-                    writer_list[past].add_scalar('Test/domain_accuracy', statistics.mean(tmp),
-                                                 epoch + (config['epochs'] * index))
+                    wandb.log({f"Test/domain{past}_acc": statistics.mean(tmp)})
                     test_list[past].append(statistics.mean(tmp))
                     for t in tmp:
                         tmp_list.append(t)
                 # Current task
                 test_loader = DataLoader(test_set[index], batch_size=1, shuffle=False)
                 tmp, loss_task = test_epoch(a_gem.model, test_loader, a_gem.loss, device)
-                writer_list[index].add_scalar('Test/domain_accuracy', statistics.mean(tmp),
-                                              epoch + (config['epochs'] * index))
-                writer_list[index].add_scalar('Test/domain_loss', statistics.mean(loss_task),
-                                              epoch + (config['epochs'] * index))
+                wandb.log({f"Test/domain{index}_acc": statistics.mean(tmp),
+                           "Test/domain_loss": statistics.mean(loss_task)})
                 test_list[index].append(statistics.mean(tmp))
                 for t in tmp:
                     tmp_list.append(t)
 
                 avg = sum(tmp_list) / len(tmp_list)
-                test_writer.add_scalar('Test/mean_accuracy', avg, epoch + (config['epochs'] * index))
+                wandb.log({"Test/mean_acc":avg})
 
         # Test at the end of domain
         evaluation, error, mean_evaluation, mean_error = evaluate_past(a_gem.model, index, test_set, a_gem.loss, device)
