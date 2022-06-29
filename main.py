@@ -28,71 +28,80 @@ warnings.simplefilter('ignore', category=NumbaDeprecationWarning)
 warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
 os.environ["KMP_DUPLICATE_LIB_OK"] = 'True'
 
-# General Paramteres
-parser = argparse.ArgumentParser(description='Thesis')
-parser.add_argument('--batch_size', type=int, default=64,
-                    help="Batch size dimension")
-parser.add_argument('--epochs', type=int, default=300,
-                    help="Number of train epochs")
-parser.add_argument('--lr', type=float, default=0.0001,
-                    help="Learning rate")
-parser.add_argument('--dataset', type=str, help="CSV file")
-parser.add_argument('--processing', default='none', choices=['none', 'difference', 'indicators'],
-                    help="Type of pre-processing")
-parser.add_argument('--split', action='store_true',
-                    help="Show tasks split")
-parser.add_argument('--suffix', type=str, default="default",
-                    help="Suffix name")
-parser.add_argument('--evaluate', action='store_true',
-                    help="Test current and prevoius tasks each epoch")
-# Network
-parser.add_argument('--cnn', action='store_true',
-                    help="Convolutional Network")
-parser.add_argument('--dropout', type=float, default=0.5,
-                    help="Probabilty for dropout in MLP")
-parser.add_argument('--l1_lambda', type=float, default=0.01,
-                    help="Regularization param in L1 Norm (CNN only)")
-# Methods
-parser.add_argument('--model', default='online',
-                    choices=['online', 'er', 'der', 'derpp', 'ewc', 'si', 'gem', 'agem', 'agem_r'],
-                    help="CL technique")
-# Regularization Parameters
-parser.add_argument('--gamma', type=float, default=0.7,
-                    help="gamma value for EWC")
-parser.add_argument('--e_lambda', type=float, default=100,
-                    help="lambda value for EWC")
-parser.add_argument('--xi', type=float, default=1,
-                    help="xi value for SI")
-parser.add_argument('--c', type=float, default=0.5,
-                    help="c value for SI")
-# Replay Parameters
-parser.add_argument('--buffer_size', type=int, default=500,
-                    help="Size of the buffer for replay methods")
-parser.add_argument('--alpha', type=float, default=0.5,
-                    help="penalty weight for DER")
-parser.add_argument('--beta', type=float, default=0.5,
-                    help="penalty weight for DER++")
-parser.add_argument('--gem_gamma', type=float, default=0.25,
-                    help="gamma value for GEM")
+
+def parse_args():
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--batch_size', type=int, default=64,
+                        help="Batch size")
+    parser.add_argument('--epochs', type=int, default=300,
+                        help="Number of train epochs")
+    parser.add_argument('--lr', type=float, default=0.0001,
+                        help="Learning rate")
+    parser.add_argument('--dataset', type=str, help="CSV file")
+    parser.add_argument('--processing', default='none', choices=['none', 'difference', 'indicators'],
+                        help="Type of pre-processing")
+    parser.add_argument('--split', action='store_true',
+                        help="Show tasks split")
+    parser.add_argument('--suffix', type=str, default="default",
+                        help="Suffix name")
+    parser.add_argument('--evaluate', action='store_true',
+                        help="Test current and previous tasks each epoch")
+    parser.add_argument('--seed',type=int,default=230,
+                        help='Seed')
+
+    # Network arguments
+    parser.add_argument('--cnn', action='store_true',
+                        help="Convolutional Network")
+    parser.add_argument('--dropout', type=float, default=0.5,
+                        help="Probability for dropout in MLP")
+    parser.add_argument('--l1_lambda', type=float, default=0.01,
+                        help="Regularization param in L1 Norm (used in CNN only)")
+    # Methods
+    parser.add_argument('--model', default='online',
+                        choices=['online', 'er', 'der', 'derpp', 'ewc', 'si', 'gem', 'agem', 'agem_r'],
+                        help="CL method")
+    # Regularization arguments
+    parser.add_argument('--gamma', type=float, default=0.7,
+                        help="gamma value for EWC")
+    parser.add_argument('--e_lambda', type=float, default=100,
+                        help="lambda value for EWC")
+    parser.add_argument('--xi', type=float, default=1,
+                        help="xi value for SI")
+    parser.add_argument('--c', type=float, default=0.5,
+                        help="c value for SI")
+    # Replay arguments
+    parser.add_argument('--buffer_size', type=int, default=500,
+                        help="Size of the buffer for replay methods")
+    parser.add_argument('--alpha', type=float, default=0.5,
+                        help="penalty weight for DER")
+    parser.add_argument('--beta', type=float, default=0.5,
+                        help="penalty weight for DER++")
+    parser.add_argument('--gem_gamma', type=float, default=0.25,
+                        help="gamma value for GEM")
+
+    args = vars(parser.parse_args())
+    return args
 
 
 def main(config):
     start = time.time()
 
-    random.seed(230)
-    np.random.seed(230)
-    torch.manual_seed(230)
-    torch.cuda.manual_seed_all(230)
+    random.seed(config['seed'])
+    np.random.seed(config['seed'])
+    torch.manual_seed(config['seed'])
+    torch.cuda.manual_seed_all(config['seed'])
 
+    # Read raw time series
     raw_data = read_csv(config["dataset"])
 
-    # Check if chps are already saved
+    # Check if chekpoints are already stored
     saved, chps = check_changepoints(config["dataset"])
 
     # Online changepoint
     if not saved:
         det = detection.BayesOnline()
-        # past and th heavily depend on data
+        # past and threshold heavily depend on data
         chp_online = det.find_changepoints(raw_data, past=50, prob_threshold=0.2)
         chps = chp_online[1:]
 
@@ -103,7 +112,7 @@ def main(config):
     # Type of dataset (yearly,quarterly...)
     n_step = timeperiod(config['dataset'])
 
-    # Split in N train/test set (data + feature)
+    # Split in N train/test set (data + features)
     if config['processing'] == 'indicators':
         train_data, test_data = split_with_indicators(config, raw_data, chps, n_step)
     elif config['processing'] == 'difference':
@@ -120,7 +129,6 @@ def main(config):
 
     # Setup the backbone
     input_size = train_data[0][0][0].size()[0]
-
     if config["cnn"]:
         model = SimpleCNN(input_size=input_size)
     else:
@@ -151,7 +159,7 @@ def main(config):
         train_dark_er(train_set=train_data, test_set=test_data, model=model, loss=loss,
                       optimizer=optimizer, device=device, config=config, suffix=config['suffix'])
 
-    # Continual learning with Dark ER
+    # Continual learning with Dark ER++
     if config["model"] == 'derpp':
         train_derpp(train_set=train_data, test_set=test_data, model=model, loss=loss,
                     optimizer=optimizer, device=device, config=config, suffix=config['suffix'])
@@ -186,5 +194,5 @@ def main(config):
 
 
 if __name__ == "__main__":
-    args = vars(parser.parse_args())
+    args = parse_args()
     main(args)

@@ -1,22 +1,17 @@
 import statistics
 import torch
-
 from utils.buffer import Buffer
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
-
 from models.gem import store_gradient, overwrite_gradient
 from utils.metrics import backward_transfer, forgetting, forward_transfer
 from utils.evaluation import evaluate_past, test_epoch, evaluate_next
 from utils.utils import binary_accuracy
-
 import pandas as pd
 import numpy as np
 
 
 def train_agem(model, loss, device, optimizer, train_set, test_set, suffix, config):
-    train_writer = SummaryWriter('./runs/a_gem/train/' + suffix)
     a_gem = AGEM(config, device, model, loss, optimizer)
     accuracy = []
 
@@ -24,11 +19,7 @@ def train_agem(model, loss, device, optimizer, train_set, test_set, suffix, conf
     if config['evaluate']:
         text_file = open("a_gem_" + suffix + ".txt", "a")
         text_file.write("A-GEM LEARNING \n")
-        test_writer = SummaryWriter('./runs/a_gem/test/' + suffix)
-        writer_list = []
         test_list = [[] for _ in range(len(train_set))]
-        for i in range(len(train_set)):
-            writer_list.append(SummaryWriter(f'./runs/a_gem/test/{suffix}/d_{i}'))
 
     # Eval without training
     _, _, random_mean_accuracy, _ = evaluate_past(a_gem.model, len(test_set) - 1, test_set, a_gem.loss, device)
@@ -85,11 +76,6 @@ def train_agem(model, loss, device, optimizer, train_set, test_set, suffix, conf
 
                 a_gem.optimizer.step()
 
-            train_writer.add_scalar('Train/loss', statistics.mean(epoch_loss),
-                                    epoch + (config['epochs'] * index))
-            train_writer.add_scalar('Train/accuracy', statistics.mean(epoch_acc),
-                                    epoch + (config['epochs'] * index))
-
             if (epoch % 100 == 0) or (epoch == (config['epochs'] - 1)):
                 print(f'\nEpoch {epoch:03}/{config["epochs"]} | Loss: {statistics.mean(epoch_loss):.5f} '
                       f'| Acc: {statistics.mean(epoch_acc):.2f}%')
@@ -101,24 +87,15 @@ def train_agem(model, loss, device, optimizer, train_set, test_set, suffix, conf
                 for past in range(index):
                     test_loader = DataLoader(test_set[past], batch_size=1, shuffle=False)
                     tmp, _ = test_epoch(a_gem.model, test_loader, a_gem.loss, device)
-                    writer_list[past].add_scalar('Test/domain_accuracy', statistics.mean(tmp),
-                                                 epoch + (config['epochs'] * index))
                     test_list[past].append(statistics.mean(tmp))
                     for t in tmp:
                         tmp_list.append(t)
                 # Current task
                 test_loader = DataLoader(test_set[index], batch_size=1, shuffle=False)
                 tmp, loss_task = test_epoch(a_gem.model, test_loader, a_gem.loss, device)
-                writer_list[index].add_scalar('Test/domain_accuracy', statistics.mean(tmp),
-                                              epoch + (config['epochs'] * index))
-                writer_list[index].add_scalar('Test/domain_loss', statistics.mean(loss_task),
-                                              epoch + (config['epochs'] * index))
                 test_list[index].append(statistics.mean(tmp))
                 for t in tmp:
                     tmp_list.append(t)
-
-                avg = sum(tmp_list) / len(tmp_list)
-                test_writer.add_scalar('Test/mean_accuracy', avg, epoch + (config['epochs'] * index))
 
         a_gem.end_task(train_set, index)
 
@@ -135,8 +112,6 @@ def train_agem(model, loss, device, optimizer, train_set, test_set, suffix, conf
 
         if index != len(train_set) - 1:
             accuracy[index].append(evaluate_next(a_gem.model, index, test_set, a_gem.loss, device))
-
-        torch.save(a_gem.model.state_dict(), f'checkpoints/a_gem/model_d{index}.pt')
 
     # Compute transfer metrics
     backward = backward_transfer(accuracy)

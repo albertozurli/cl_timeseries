@@ -1,23 +1,18 @@
 import statistics
 import torch
-
 from models.agem import project
 from utils.buffer import Buffer
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
-
 from models.gem import store_gradient, overwrite_gradient
 from utils.metrics import backward_transfer, forgetting, forward_transfer
 from utils.evaluation import evaluate_past, test_epoch, evaluate_next
 from utils.utils import binary_accuracy
-import wandb
 import pandas as pd
 import numpy as np
 
 
 def train_agem_r(model, loss, device, optimizer, train_set, test_set, suffix, config):
-    wandb.init(project="LOD2022", entity="albertozurli", reinit=True)
     a_gem = AGemR(config, device, model, loss, optimizer)
     accuracy = []
 
@@ -85,9 +80,6 @@ def train_agem_r(model, loss, device, optimizer, train_set, test_set, suffix, co
                 if epoch == 0:
                     a_gem.buffer.add_data(examples=x.to(device), labels=y.to(device))
 
-            wandb.log({"Train/loss": statistics.mean(epoch_loss),
-                       "Train/accuracy": statistics.mean(epoch_acc)})
-
             if (epoch % 100 == 0) or (epoch == (config['epochs'] - 1)):
                 print(f'\nEpoch {epoch:03}/{config["epochs"]} | Loss: {statistics.mean(epoch_loss):.5f} '
                       f'| Acc: {statistics.mean(epoch_acc):.2f}%')
@@ -99,21 +91,15 @@ def train_agem_r(model, loss, device, optimizer, train_set, test_set, suffix, co
                 for past in range(index):
                     test_loader = DataLoader(test_set[past], batch_size=1, shuffle=False)
                     tmp, _ = test_epoch(a_gem.model, test_loader, a_gem.loss, device)
-                    wandb.log({f"Test/domain{past}_acc": statistics.mean(tmp)})
                     test_list[past].append(statistics.mean(tmp))
                     for t in tmp:
                         tmp_list.append(t)
                 # Current task
                 test_loader = DataLoader(test_set[index], batch_size=1, shuffle=False)
                 tmp, loss_task = test_epoch(a_gem.model, test_loader, a_gem.loss, device)
-                wandb.log({f"Test/domain{index}_acc": statistics.mean(tmp),
-                           "Test/domain_loss": statistics.mean(loss_task)})
                 test_list[index].append(statistics.mean(tmp))
                 for t in tmp:
                     tmp_list.append(t)
-
-                avg = sum(tmp_list) / len(tmp_list)
-                wandb.log({"Test/mean_acc":avg})
 
         # Test at the end of domain
         evaluation, error, mean_evaluation, mean_error = evaluate_past(a_gem.model, index, test_set, a_gem.loss, device)
@@ -128,8 +114,6 @@ def train_agem_r(model, loss, device, optimizer, train_set, test_set, suffix, co
 
         if index != len(train_set) - 1:
             accuracy[index].append(evaluate_next(a_gem.model, index, test_set, a_gem.loss, device))
-
-        torch.save(model.state_dict(), f'checkpoints/a_gem_r/model_d{index}.pt')
 
     # Compute transfer metrics
     backward = backward_transfer(accuracy)

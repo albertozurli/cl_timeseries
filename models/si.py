@@ -1,23 +1,18 @@
 import statistics
 import torch
-
 from torch import nn
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 from utils.metrics import backward_transfer, forgetting, forward_transfer
 from utils.evaluation import evaluate_past, test_epoch, evaluate_next
 from utils.utils import binary_accuracy
-import wandb
 import pandas as pd
 
 
 def train_si(model, loss, device, optimizer, train_set, test_set, suffix, config):
-    wandb.init(project="LOD2022", entity="albertozurli", reinit=True)
     si = SI(model, loss, config, optimizer, device)
     accuracy = []
 
-    # N SummaryWriter for N domains
     if config['evaluate']:
         text_file = open("si_" + suffix + ".txt", "a")
         text_file.write("SI LEARNING \n")
@@ -62,8 +57,6 @@ def train_si(model, loss, device, optimizer, train_set, test_set, suffix, config
                 nn.utils.clip_grad.clip_grad_value_(si.model.parameters(), 1)
                 si.optimizer.step()
                 si.small_omega += config['lr'] * si.model.get_grads().data ** 2
-            wandb.log({"Train/loss": statistics.mean(epoch_loss),
-                       "Train/accuracy": statistics.mean(epoch_acc)})
 
             if (epoch % 100 == 0) or (epoch == (config['epochs'] - 1)):
                 print(f'\nEpoch {epoch:03}/{config["epochs"]} | Loss: {statistics.mean(epoch_loss):.5f} '
@@ -76,7 +69,6 @@ def train_si(model, loss, device, optimizer, train_set, test_set, suffix, config
                 for past in range(index):
                     test_loader = DataLoader(test_set[past], batch_size=1, shuffle=False)
                     tmp, _ = test_epoch(si.model, test_loader, si.loss, device)
-                    wandb.log({f"Test/domain{past}_acc":statistics.mean(tmp)})
                     test_list[past].append(statistics.mean(tmp))
                     for t in tmp:
                         tmp_list.append(t)
@@ -84,13 +76,8 @@ def train_si(model, loss, device, optimizer, train_set, test_set, suffix, config
                 test_loader = DataLoader(test_set[index], batch_size=1, shuffle=False)
                 tmp, loss_task = test_epoch(si.model, test_loader, si.loss, device)
                 test_list[index].append(statistics.mean(tmp))
-                wandb.log({f"Test/domain{index}_acc": statistics.mean(tmp),
-                           "Test/domain_loss": statistics.mean(loss_task)})
                 for t in tmp:
                     tmp_list.append(t)
-
-                avg = sum(tmp_list) / len(tmp_list)
-                wandb.log({"Test/mean_acc":avg})
 
         si.end_task()
 
@@ -107,8 +94,6 @@ def train_si(model, loss, device, optimizer, train_set, test_set, suffix, config
 
         if index != len(train_set) - 1:
             accuracy[index].append(evaluate_next(si.model, index, test_set, si.loss, device))
-
-        torch.save(si.model.state_dict(), f'checkpoints/si/model_d{index}.pt')
 
     # Compute transfer metrics
     backward = backward_transfer(accuracy)

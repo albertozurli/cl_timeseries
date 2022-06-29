@@ -9,10 +9,6 @@ from pathlib import Path
 
 
 def indicators(data):
-    """
-    :param data: data
-    :return: np array of each indicator
-    """
     cmo = talib.CMO(np.array(data), timeperiod=10).reshape(-1, 1)
     roc = talib.ROC(np.array(data), timeperiod=5).reshape(-1, 1)
     rsi = talib.RSI(np.array(data), timeperiod=5).reshape(-1, 1)
@@ -41,13 +37,6 @@ def unique(numbers):
 
 
 def split_with_indicators(config, data, chps, n_step):
-    """
-    :param config: config
-    :param data: data
-    :param chps: list of changepoint detected
-    :param n_step: size of a sequence
-    :return: train set and test set divided
-    """
     train_data = []
     test_data = []
 
@@ -77,7 +66,6 @@ def split_with_indicators(config, data, chps, n_step):
             seq_wma = subwma[i:end_seq].squeeze()
             seq_ppo = subppo[i:end_seq].squeeze()
             input_data = np.stack([seq_x, seq_diff, seq_cmo, seq_roc, seq_rsi, seq_wma, seq_ppo])
-            # input_data = np.stack([seq_diff, seq_cmo, seq_roc, seq_rsi, seq_wma, seq_ppo])
 
             label = 0  # Target value lower or equal than input sequence
             if y > statistics.mean(seq_x.flatten()):
@@ -98,13 +86,6 @@ def split_with_indicators(config, data, chps, n_step):
 
 
 def split_data(config, data, chps, n_step):
-    """
-    :param config: config
-    :param data: data
-    :param chps: list of changepoint detected
-    :param n_step: size of a sequence
-    :return: train set and test set divided
-    """
     train_data = []
     test_data = []
     tmp = np.split(data, chps)
@@ -136,10 +117,6 @@ def split_data(config, data, chps, n_step):
 
 
 def read_csv(filename):
-    """
-    :param filename: name of the file
-    :return: list of values extracted from the file
-    """
     path = Path.cwd()
     csv_path = path.joinpath('dataset', filename)
     df = pd.read_csv(csv_path)
@@ -162,23 +139,12 @@ def check_changepoints(filename):
 
 
 def binary_accuracy(y_pred, y_true):
-    """
-    :param y_pred: label predicted
-    :param y_true: true label
-    :return: accuracy
-    """
-
     result_sum = (y_pred == y_true).sum()
     acc = result_sum / y_true.shape[0]
     return acc*100
 
 
 def eval_bayesian(chps, raw_data):
-    """
-    Visual evaluation of Bayesian changepoint detection and split in different domains
-    :param chps: array of changepoint
-    :param raw_data:
-    """
     plt.figure(figsize=(10, 6))
     plt.plot(raw_data)
     plt.grid(True)

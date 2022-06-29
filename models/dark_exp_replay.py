@@ -1,44 +1,24 @@
 import statistics
-
 import pandas as pd
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
-
 from utils.buffer import Buffer
 from utils.metrics import backward_transfer, forgetting, forward_transfer
 from utils.evaluation import evaluate_past, test_epoch, evaluate_next
 from utils.utils import binary_accuracy
-import wandb
+
 
 def train_dark_er(train_set, test_set, model, loss, optimizer, device, config, suffix):
-    """
-    :param train_set: Train set
-    :param test_set: Test set
-    :param model: PyTorch model
-    :param loss: loss function
-    :param optimizer: optimizer
-    :param device: device cuda/cpu
-    :param config: configuration
-    :param suffix: Suffix for the filename and Summary Writer
-    """
 
-    wandb.init(project="LOD2022", entity="albertozurli", reinit=True)
-    # train_writer = SummaryWriter('./runs/dark_exp_replay/train/' + suffix)
     der = DarkER(config, device, model, loss, optimizer)
     accuracy = []
 
-    # N SummaryWriter for N domains
     if config['evaluate']:
         text_file = open("dark_er_" + suffix + ".txt", "a")
         text_file.write("\nCONTINUAL LEARNING W\\ DER \n")
-        # test_writer = SummaryWriter('./runs/dark_exp_replay/test/' + suffix)
-        # writer_list = []
         test_list = [[] for _ in range(len(train_set))]
-        # for i in range(len(train_set)):
-        #     writer_list.append(SummaryWriter(f'./runs/dark_exp_replay/test/{suffix}/d_{i}'))
 
     # Eval without training
     _, _, random_mean_accuracy, _ = evaluate_past(der.model, len(test_set) - 1, test_set, loss, device)
@@ -88,13 +68,6 @@ def train_dark_er(train_set, test_set, model, loss, optimizer, device, config, s
                 if epoch == 0:
                     der.buffer.add_data(examples=x.to(device), logits=output.to(device))
 
-            # train_writer.add_scalar('Train/loss', statistics.mean(epoch_loss),
-            #                         epoch + (config['epochs'] * index))
-            # train_writer.add_scalar('Train/accuracy', statistics.mean(epoch_acc),
-            #                         epoch + (config['epochs'] * index))
-            wandb.log({"Train/loss": statistics.mean(epoch_loss),
-                       "Train/accuracy": statistics.mean(epoch_acc)})
-
             if (epoch % 100 == 0) or (epoch == config['epochs'] - 1):
                 print(f'\nEpoch {epoch:03}/{config["epochs"]} | Loss: {statistics.mean(epoch_loss):.5f} '
                       f'| Acc: {statistics.mean(epoch_acc):.2f}%')
@@ -106,29 +79,16 @@ def train_dark_er(train_set, test_set, model, loss, optimizer, device, config, s
                 for past in range(index):
                     test_loader = DataLoader(test_set[past], batch_size=1, shuffle=False)
                     tmp, _ = test_epoch(der.model, test_loader, loss, device)
-                    # writer_list[past].add_scalar('Test/domain_accuracy', statistics.mean(tmp),
-                    #                              epoch + (config['epochs'] * index))
-                    wandb.log({f"Test/domain{past}_acc": statistics.mean(tmp)})
                     test_list[past].append(statistics.mean(tmp))
                     for t in tmp:
                         tmp_list.append(t)
                 # Current task
                 test_loader = DataLoader(test_set[index], batch_size=1, shuffle=False)
                 tmp, loss_task = test_epoch(der.model, test_loader, loss, device)
-                wandb.log({f"Test/domain{index}_acc": statistics.mean(tmp),
-                           "Test/domain_loss": statistics.mean(loss_task)})
-                # writer_list[index].add_scalar('Test/domain_accuracy', statistics.mean(tmp),
-                #                               i + (config['epochs'] * index))
-                # test_writer.add_scalar('Test/domain_loss', statistics.mean(loss_task),
-                #                               i + (config['epochs'] * index))
 
                 test_list[index].append(statistics.mean(tmp))
                 for t in tmp:
                     tmp_list.append(t)
-
-                avg = sum(tmp_list) / len(tmp_list)
-                wandb.log({"Test/mean_acc":avg})
-                # test_writer.add_scalar('Test/mean_accuracy', avg, epoch + (config['epochs'] * index))
 
         # Test at the end of domain
         evaluation, error, mean_evaluation, mean_error = evaluate_past(der.model, index, test_set, loss, device)
@@ -143,11 +103,6 @@ def train_dark_er(train_set, test_set, model, loss, optimizer, device, config, s
 
         if index != len(train_set) - 1:
             accuracy[index].append(evaluate_next(der.model, index, test_set, loss, device))
-
-        torch.save(der.model.state_dict(), f'checkpoints/der/model_d{index}.pt')
-
-    # Check buffer distribution
-    der.buffer.check_distribution()
 
     # Compute transfer metrics
     backward = backward_transfer(accuracy)

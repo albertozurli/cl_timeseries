@@ -7,11 +7,6 @@ from utils.utils import binary_accuracy
 
 
 def test_epoch(model, test_loader, loss, device):
-    """
-    :param model: PyTorch model
-    :param test_loader: DataLoader
-    :param device: device (cuda/cpu)
-    """
     model.eval()
     test_acc = []
     test_loss = []
@@ -31,12 +26,6 @@ def test_epoch(model, test_loader, loss, device):
 
 
 def test(model, loss, test_loader, device):
-    """
-    :param model: PyTorch model
-    :param loss: loss function
-    :param test_loader: DataLoader
-    :param device: device (cuda/cpu)
-    """
     model.eval()
     test_loss = []
     test_acc = []

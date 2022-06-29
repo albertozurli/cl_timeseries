@@ -1,25 +1,20 @@
 import statistics
 import torch
 import quadprog
-
 from utils.buffer import Buffer
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 from utils.metrics import backward_transfer, forgetting, forward_transfer
 from utils.evaluation import evaluate_past, test_epoch, evaluate_next
 from utils.utils import binary_accuracy, unique
-import wandb
 import pandas as pd
 import numpy as np
 
 
 def train_gem(model, loss, device, optimizer, train_set, test_set, suffix, config):
-    wandb.init(project="LOD2022", entity="albertozurli", reinit=True)
     gem = GEM(config, device, model, loss, optimizer)
     accuracy = []
 
-    # N SummaryWriter for N domains
     if config['evaluate']:
         text_file = open("gem_" + suffix + ".txt", "a")
         text_file.write("GEM LEARNING \n")
@@ -42,13 +37,16 @@ def train_gem(model, loss, device, optimizer, train_set, test_set, suffix, confi
             for j, (x, y) in enumerate(train_loader):
 
                 if not gem.buffer.is_empty():
-                    buf_inputs, buf_labels, buf_task_labels = gem.buffer.get_data(config['buffer_size'])
+                    buf_inputs, buf_labels, buf_task_labels = gem.buffer.get_data(config['buffer_size'],
+                                                                                  task_labels=True)
 
                     # Gradient buffer
                     for tt in unique(buf_task_labels):
                         gem.optimizer.zero_grad()
-                        cur_task_inputs = [buf_inputs[i] for i in range(len(buf_task_labels)) if buf_task_labels[i] == tt]
-                        cur_task_labels = [buf_labels[i] for i in range(len(buf_task_labels)) if buf_task_labels[i] == tt]
+                        cur_task_inputs = [buf_inputs[i] for i in range(len(buf_task_labels)) if
+                                           buf_task_labels[i] == tt]
+                        cur_task_labels = [buf_labels[i] for i in range(len(buf_task_labels)) if
+                                           buf_task_labels[i] == tt]
                         cur_task_outputs = gem.model(torch.stack(cur_task_inputs))
                         buffer_loss = gem.loss(cur_task_outputs, torch.stack(cur_task_labels).squeeze(1))
                         buffer_loss.backward()
@@ -87,9 +85,6 @@ def train_gem(model, loss, device, optimizer, train_set, test_set, suffix, confi
 
                 gem.optimizer.step()
 
-            wandb.log({"Train/loss": statistics.mean(epoch_loss),
-                       "Train/accuracy": statistics.mean(epoch_acc)})
-
             if (epoch % 100 == 0) or (epoch == (config['epochs'] - 1)):
                 print(f'\nEpoch {epoch:03}/{config["epochs"]} | Loss: {statistics.mean(epoch_loss):.5f} '
                       f'| Acc: {statistics.mean(epoch_acc):.2f}%')
@@ -101,21 +96,15 @@ def train_gem(model, loss, device, optimizer, train_set, test_set, suffix, confi
                 for past in range(index):
                     test_loader = DataLoader(test_set[past], batch_size=1, shuffle=False)
                     tmp, _ = test_epoch(gem.model, test_loader, gem.loss, device)
-                    wandb.log({f"Test/domain{past}_acc": statistics.mean(tmp)})
                     test_list[past].append(statistics.mean(tmp))
                     for t in tmp:
                         tmp_list.append(t)
                 # Current task
                 test_loader = DataLoader(test_set[index], batch_size=1, shuffle=False)
                 tmp, loss_task = test_epoch(gem.model, test_loader, gem.loss, device)
-                wandb.log({f"Test/domain{index}_acc": statistics.mean(tmp),
-                           "Test/domain_loss": statistics.mean(loss_task)})
                 test_list[index].append(statistics.mean(tmp))
                 for t in tmp:
                     tmp_list.append(t)
-
-                avg = sum(tmp_list) / len(tmp_list)
-                wandb.log({"Test/mean_acc":avg})
 
         gem.end_task(train_set)
 
@@ -132,8 +121,6 @@ def train_gem(model, loss, device, optimizer, train_set, test_set, suffix, confi
 
         if index != len(train_set) - 1:
             accuracy[index].append(evaluate_next(gem.model, index, test_set, gem.loss, device))
-
-        torch.save(gem.model.state_dict(), f'checkpoints/gem/model_d{index}.pt')
 
     # Compute transfer metrics
     backward = backward_transfer(accuracy)
@@ -176,14 +163,6 @@ def overwrite_gradient(parameters, new, gradient_dims):
 
 
 def project2cone2(gradient, memories, margin=0.5, eps=1e-3):
-    """
-        Solves the GEM dual QP described in the paper given a proposed
-        gradient "gradient", and a memory of task gradients "memories".
-        Overwrites "gradient" with the final projected update.
-        input:  gradient, p-vector
-        input:  memories, (t * p)-vector
-        output: x, p-vector
-    """
     memories_np = memories.cpu().t().double().numpy()
     gradient_np = gradient.cpu().contiguous().view(-1).double().numpy()
     n_rows = memories_np.shape[0]
